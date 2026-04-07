@@ -11,6 +11,8 @@ export default function All_Reports_Table({ active, data = [], setEditItem, setO
   const role = typeof window !== "undefined" ? localStorage.getItem("role")?.toLowerCase() : null;
   const isAdmin = role === "admin" || role === "administrator";
 
+
+  
   return (
     <div className="w-full rounded-[2.5rem] border border-slate-100 p-6 bg-white mt-4 shadow-xl shadow-slate-200/50 overflow-hidden">
       <Table>
