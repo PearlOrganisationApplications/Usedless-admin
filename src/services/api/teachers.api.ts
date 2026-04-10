@@ -1,97 +1,187 @@
 import api from './axios';
 
-export interface Document {
-  id: string;
-  type: string;
-  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
-  url: string;
+export interface TeacherResponse {
+  _id: string;
+  userId: {
+    _id: string;
+    phone: string;
+    email: string;
+    role: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  BasicDetails?: {
+    fullName: string;
+    email: string;
+    mobile: string;
+    gender: string;
+    dob: string;
+    profilePic: string | null;
+    address: {
+      street: string;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+  };
+  QualificationDetails: {
+    degree?: string;
+    college?: string;
+    passingYear?: string;
+    teachingQualification?: string;
+    bed?: boolean;
+    certifications: string[];
+  };
+  ExperienceDetails: {
+    experience?: {
+      years: number;
+      months: number;
+    };
+    subjects: string[];
+    teachingLanguages: string[];
+    teachingBoards: string[];
+    classes: {
+      range?: string;
+      individual: string[];
+    };
+    documents: {
+      aadharCard: string | null;
+      experienceDoc: string | null;
+      qualificationCert: string | null;
+    };
+    resume: string | null;
+    shortSummary?: string;
+    teachingMode?: string;
+  };
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface ScheduleSlot {
-  id: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  isBooked: boolean;
-}
-
-export interface TeacherAnalytics {
-  rating: number;
-  sessionSuccessRate: string;
-  responseTime: string;
-  complaintCount: number;
-}
-
+// Unified Teacher interface for the UI
 export interface Teacher {
   id: string;
   name: string;
   email: string;
+  phone: string;
   subject: string;
-  expertise: string[];
-  bio: string;
-  status: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'BANNED';
-  isVerified: boolean;
-  rating: number;
-  sessionsCount: number;
-  isOnline: boolean;
-  autoAssign: boolean;
+  subjects: string[];
   experienceYears: number;
-  isExperienceVerified: boolean;
+  isVerified: boolean;
+  status: 'ACTIVE' | 'PENDING';
+  bio: string;
+  profilePic: string | null;
   onboardingStep: 'REGISTRATION' | 'DOCUMENTS' | 'DEMO_SESSION' | 'APPROVAL';
-  documents: Document[];
-  analytics: TeacherAnalytics;
+  documents: {
+    id: string;
+    type: string;
+    status: 'VERIFIED' | 'PENDING';
+    url: string | null;
+  }[];
+  raw: TeacherResponse; // Keep raw data for updates
 }
 
+const mapResponseToTeacher = (res: TeacherResponse): Teacher => {
+  const name = res.BasicDetails?.fullName || 'Unnamed Teacher';
+  const email = res.BasicDetails?.email || res.userId?.email || 'No Email';
+  const phone = res.BasicDetails?.mobile || res.userId?.phone || 'No Phone';
+  const subjects = res.ExperienceDetails?.subjects || [];
+  const years = res.ExperienceDetails?.experience?.years || 0;
+  const docs = res.ExperienceDetails?.documents || { aadharCard: null, experienceDoc: null, qualificationCert: null };
+
+  return {
+    id: res._id,
+    name,
+    email,
+    phone,
+    subject: subjects[0] || 'Not Specified',
+    subjects,
+    experienceYears: years,
+    isVerified: !!res.isVerified,
+    status: res.isVerified ? 'ACTIVE' : 'PENDING',
+    bio: res.ExperienceDetails?.shortSummary || 'No bio provided.',
+    profilePic: res.BasicDetails?.profilePic || null,
+    onboardingStep: res.isVerified ? 'APPROVAL' : 'DOCUMENTS',
+    documents: [
+      { id: 'aadhar', type: 'Aadhar Card', status: docs.aadharCard ? 'VERIFIED' : 'PENDING', url: docs.aadharCard },
+      { id: 'exp', type: 'Experience Doc', status: docs.experienceDoc ? 'VERIFIED' : 'PENDING', url: docs.experienceDoc },
+      { id: 'qual', type: 'Qualification Cert', status: docs.qualificationCert ? 'VERIFIED' : 'PENDING', url: docs.qualificationCert }
+    ],
+    raw: res
+  };
+};
+
 export const teacherApi = {
-
   getAll: async (): Promise<Teacher[]> => {
-  const res = await api.get('/teachers');
-    return res.data.map((t: any) => ({
-    id: t._id,
-    name: t.userId?.email?.split('@')[0] || 'No Name',
-    email: t.userId?.email || '',
-    subject: t.ExperienceDetails?.subjects?.[0] || 'N/A',
-    expertise: t.ExperienceDetails?.subjects || [],
-    bio: '',
-    status: t.isVerified ? 'ACTIVE' : 'PENDING',
-    isVerified: t.isVerified,
-    userId: t.userId,
-    rating: 0,
-    sessionsCount: 0,
-    isOnline: false,
-    autoAssign: false,
-    experienceYears: 0,
-    isExperienceVerified: false,
-    onboardingStep: 'REGISTRATION',
-    documents: [],
-    analytics: {
-      rating: 0,
-      sessionSuccessRate: '0%',
-      responseTime: '0',
-      complaintCount: 0
+    try {
+      const response = await api.get<TeacherResponse[]>('/teachers');
+      console.log('API Response:', response.data);
+      return response.data.map(mapResponseToTeacher);
+    } catch (error) {
+      console.error('Failed to fetch teachers:', error);
+      throw error;
     }
-  }));
-},
-
-  getById: async (id: string) => {
-    const list = await teacherApi.getAll();
-    return list.find(t => t.id === id);
   },
 
+  getById: async (id: string): Promise<Teacher> => {
+    // The API doesn't seem to have a direct GET /teachers/:id based on the prompt, 
+    // but usually it does. If not, we'd fetch all and find.
+    // Assuming GET /teachers/:id exists.
+    const response = await api.get<TeacherResponse>(`/teachers/${id}`);
+    return mapResponseToTeacher(response.data);
+  },
 
-  approve: async (id: string) => api.post(`/teachers/${id}/approve`),
-  reject: async (id: string) => api.post(`/teachers/${id}/reject`),
-  suspend: async (id: string) => api.post(`/teachers/${id}/suspend`),
-  ban: async (id: string) => api.post(`/teachers/${id}/ban`),
-  remove: async (id: string) => api.delete(`/teachers/${id}`),
-  updateStatus: async (id: string, status: Teacher['status']) => api.patch(`/teachers/${id}/status`, { status }),
-  updateOnboardingStep: async (id: string, step: Teacher['onboardingStep']) => api.patch(`/teachers/${id}/onboarding-step`, { step }),
-  verifyDocument: async (id: string, docId: string, status: 'VERIFIED' | 'REJECTED') => api.patch(`/teachers/${id}/documents/${docId}`, { status }),
-  updateAvailability: async (id: string, isOnline: boolean) => api.patch(`/teachers/${id}/availability`, { isOnline }),
-  toggleAutoAssign: async (id: string, autoAssign: boolean) => api.patch(`/teachers/${id}/auto-assign`, { autoAssign }),
-  updateProfile: async (id: string, data: Partial<Teacher>) => api.patch(`/teachers/${id}/profile`, data),
-  getSchedule: async (id: string) => [
-    { id: 's1', day: 'Monday', startTime: '10:00', endTime: '12:00', isBooked: false },
-    { id: 's2', day: 'Monday', startTime: '14:00', endTime: '16:00', isBooked: true },
-  ] as ScheduleSlot[],
+  register: async (data: any): Promise<void> => {
+    try {
+      console.log('Registering teacher with data:', data);
+      const isFormData = data instanceof FormData;
+      await api({
+        method: 'post',
+        url: '/teachers/register',
+        data: data,
+        headers: {
+          'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+    } catch (error) {
+      console.error('API Register Error:', error);
+      throw error;
+    }
+  },
+
+  update: async (id: string, data: any): Promise<void> => {
+    try {
+      const isFormData = data instanceof FormData;
+      await api({
+        method: 'put',
+        url: `/teachers/${id}`,
+        data: data,
+        headers: {
+          'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+    } catch (error) {
+      console.error('API Update Error:', error);
+      throw error;
+    }
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/teachers/${id}`);
+  },
+
+  // Mocking these as they might be part of the update API or separate endpoints
+  verify: async (id: string): Promise<void> => {
+    await api({
+      method: 'put',
+      url: `/teachers/${id}`,
+      data: { isVerified: true },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+  }
 };

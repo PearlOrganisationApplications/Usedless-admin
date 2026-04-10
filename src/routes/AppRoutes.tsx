@@ -25,6 +25,7 @@ import { ReelsManagementPage } from '@/pages/marketing/ReelsManagementPage';
 import { ReferralManagementPage } from '@/pages/referral/ReferralManagementPage';
 import { AdminManagementPage } from '@/pages/system/AdminManagementPage';
 import { RolesPermissionsPage } from '@/pages/system/RolesPermissionsPage';
+import { AddTeacherPage } from '@/pages/teachers/AddTeacherPage';
 // More imports for modules...
 
 export const AppRoutes = () => {
@@ -41,6 +42,7 @@ export const AppRoutes = () => {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/students" element={<StudentListPage />} />
             <Route path="/teachers" element={<TeacherListPage />} />
+            <Route path="/teachers/add" element={<AddTeacherPage />} />
             <Route path="/teachers/:id" element={<TeacherDetailsPage />} />
             <Route path="/sessions" element={<SessionListPage />} />
             <Route path="/sessions/live-classes" element={<LiveClassesPage />} />

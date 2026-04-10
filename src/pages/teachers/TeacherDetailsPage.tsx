@@ -1,27 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/services/api/axios';
 import { teacherApi, Teacher } from '@/services/api/teachers.api';
+import { socketService } from '@/socket/socket.service';
 import { 
   ArrowLeft, CheckCircle, XCircle, Clock, 
-  ShieldAlert, Calendar, Camera, BookOpen,
-  TrendingUp, MessageSquare, Timer, Zap,
-  Loader2, Save, Ban, RotateCcw, Star, FileText, Shield
+  ShieldAlert, Calendar, BookOpen,
+  TrendingUp, Timer, Zap,
+  Loader2, Save, RotateCcw, Star, FileText, Shield,
+  Phone, Mail, MapPin, GraduationCap, Briefcase, Eye
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { ConfirmationModal } from '@/components/modals/ConfirmationModal';
-import { PerformanceAnalyticsModal } from '@/components/modals/PerformanceAnalyticsModal';
-import { TeacherWalletCard } from '@/components/finance/TeacherWalletCard';
+
+import { OnboardingPipeline, OnboardingStep } from '@/components/OnboardingPipeline';
 
 export const TeacherDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{title: string, message: string, onConfirm: () => void} | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTeacher, setEditedTeacher] = useState<Partial<Teacher>>({});
+  const [editedTeacher, setEditedTeacher] = useState<any>({});
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('REGISTRATION');
+
+  useEffect(() => {
+    const handleUpdate = (data: any) => {
+      // If the update is for the current teacher, invalidate the query
+      if (data?.id === id || !data?.id) {
+        console.log('TeacherDetailsPage: Real-time update received for teacher:', id);
+        queryClient.invalidateQueries({ queryKey: ['teacher', id] });
+      }
+    };
+
+    socketService.on('teacherUpdated', handleUpdate);
+
+    return () => {
+      socketService.off('teacherUpdated');
+    };
+  }, [id, queryClient]);
 
   const { data: teacher, isLoading } = useQuery({
     queryKey: ['teacher', id],
@@ -30,41 +49,67 @@ export const TeacherDetailsPage = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Teacher>) => teacherApi.updateProfile(id!, data),
+    mutationFn: async (data: any) => {
+      console.log('TeacherDetailsPage: Starting update mutation with data:', data);
+      const formData = new FormData();
+      formData.append('BasicDetails', JSON.stringify(data.BasicDetails));
+      formData.append('QualificationDetails', JSON.stringify(data.QualificationDetails));
+      formData.append('ExperienceDetails', JSON.stringify(data.ExperienceDetails));
+      
+      console.log('TeacherDetailsPage: Calling api.put directly to /teachers/' + id);
+      const response = await api({
+        method: 'put',
+        url: `/teachers/${id}`,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json'
+        }
+      });
+      return response.data;
+    },
     onSuccess: () => {
+      console.log('TeacherDetailsPage: Update successful');
       queryClient.invalidateQueries({ queryKey: ['teacher', id] });
       setIsEditing(false);
+      alert('Teacher updated successfully!');
+    },
+    onError: (error: any) => {
+      console.error('TeacherDetailsPage: Update failed', error);
+      const errorData = error.response?.data;
+      console.error('TeacherDetailsPage: Error response data:', errorData);
+      
+      // If it's HTML, it might be a 404/405 from the server
+      if (typeof errorData === 'string' && errorData.includes('<!DOCTYPE html>')) {
+        alert('Update failed: Server returned an error page. This usually means the endpoint or method is incorrect.');
+      } else {
+        alert('Update failed: ' + (errorData?.message || 'Check console for details'));
+      }
     }
   });
 
-  const statusMutation = useMutation({
-    mutationFn: ({ status }: { status: Teacher['status'] | 'APPROVED' | 'BANNED' | 'REJECTED' }) => {
-        if (status === 'ACTIVE') return teacherApi.approve(id!);
-        if (status === 'SUSPENDED') return teacherApi.suspend(id!);
-        if (status === 'BANNED') return teacherApi.ban(id!);
-        if (status === 'REJECTED') return teacherApi.reject(id!);
-        return teacherApi.updateStatus(id!, status as Teacher['status']);
+  const verifyMutation = useMutation({
+    mutationFn: async () => {
+      console.log('TeacherDetailsPage: Starting verify mutation for id:', id);
+      const response = await api({
+        method: 'put',
+        url: `/teachers/${id}`,
+        data: { isVerified: true },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', id] })
-  });
-
-  const docMutation = useMutation({
-    mutationFn: ({ docId, status }: { docId: string, status: 'VERIFIED' | 'REJECTED' }) => 
-        teacherApi.verifyDocument(id!, docId, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', id] })
-  });
-
-  const availabilityMutation = useMutation({
-    mutationFn: async ({ isOnline, autoAssign }: { isOnline?: boolean, autoAssign?: boolean }) => {
-        if (isOnline !== undefined) await teacherApi.updateAvailability(id!, isOnline);
-        if (autoAssign !== undefined) await teacherApi.toggleAutoAssign(id!, autoAssign);
+    onSuccess: () => {
+      console.log('TeacherDetailsPage: Verification successful');
+      queryClient.invalidateQueries({ queryKey: ['teacher', id] });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', id] })
-  });
-
-  const onboardingMutation = useMutation({
-    mutationFn: (step: Teacher['onboardingStep']) => teacherApi.updateOnboardingStep(id!, step),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', id] })
+    onError: (error: any) => {
+      console.error('TeacherDetailsPage: Verification failed', error);
+      alert('Verification failed. Check console for details.');
+    }
   });
 
   if (isLoading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>;
@@ -75,20 +120,23 @@ export const TeacherDetailsPage = () => {
     setIsConfirmOpen(true);
   };
 
-  const handleSaveProfile = () => {
-    updateMutation.mutate(editedTeacher);
-  };
-
   const startEditing = () => {
     setEditedTeacher({
-        name: teacher.name,
-        email: teacher.email,
-        subject: teacher.subject,
-        expertise: teacher.expertise,
-        bio: teacher.bio,
-        experienceYears: teacher.experienceYears
+      BasicDetails: { ...teacher.raw.BasicDetails },
+      ExperienceDetails: { ...teacher.raw.ExperienceDetails },
+      QualificationDetails: { ...teacher.raw.QualificationDetails }
     });
     setIsEditing(true);
+  };
+
+  const handleInputChange = (section: string, field: string, value: any) => {
+    setEditedTeacher((prev: any) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }));
   };
 
   return (
@@ -112,7 +160,7 @@ export const TeacherDetailsPage = () => {
                 Cancel
               </button>
               <button 
-                onClick={handleSaveProfile}
+                onClick={() => updateMutation.mutate(editedTeacher)}
                 disabled={updateMutation.isPending}
                 className="px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 shadow-lg shadow-primary/10 flex items-center gap-2"
               >
@@ -122,13 +170,27 @@ export const TeacherDetailsPage = () => {
             </>
           ) : (
             <>
-              <button 
-                onClick={() => handleAction('Suspend Teacher', 'Are you sure you want to suspend this teacher? They will not be able to join sessions.', () => statusMutation.mutate({ status: 'SUSPENDED' }))}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
-              >
-                <ShieldAlert size={18} />
-                Suspend
-              </button>
+              {!teacher.isVerified && onboardingStep === 'APPROVAL' && (
+                <button 
+                  onClick={() => handleAction('Verify Teacher', 'Approve this teacher and mark them as verified on the platform?', () => verifyMutation.mutate())}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 transition-colors flex items-center gap-2 shadow-lg shadow-emerald-600/10"
+                >
+                  <CheckCircle size={18} />
+                  Approve & Make Active
+                </button>
+              )}
+              {!teacher.isVerified && onboardingStep !== 'APPROVAL' && (
+                <button 
+                  onClick={() => {
+                    const steps: OnboardingStep[] = ['REGISTRATION', 'DOCUMENTS', 'DEMO_SESSION', 'APPROVAL'];
+                    const nextIdx = steps.indexOf(onboardingStep) + 1;
+                    if (nextIdx < steps.length) setOnboardingStep(steps[nextIdx]);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-500 transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/10"
+                >
+                  Next Onboarding Step
+                </button>
+              )}
               <button 
                 onClick={startEditing}
                 className="px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 shadow-lg shadow-slate-900/10 flex items-center gap-2"
@@ -140,406 +202,339 @@ export const TeacherDetailsPage = () => {
         </div>
       </div>
 
-      {/* Profile & Analytics Grid */}
+      {/* Profile Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Col: Info & Docs */}
         <div className="lg:col-span-2 space-y-8">
           {/* Main Info */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex gap-8">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-3xl bg-orange-100 flex items-center justify-center text-4xl font-black text-orange-600">
-                {teacher.name[0]}
-              </div>
-              <div className={cn(
-                "absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border-4 border-white",
-                teacher.isOnline ? "bg-green-500 text-white" : "bg-slate-400 text-white"
-              )}>
-                {teacher.isOnline ? 'Online' : 'Offline'}
+          <div className={cn(
+            "bg-white p-8 rounded-3xl border shadow-sm flex gap-8 transition-all duration-300",
+            isEditing ? "border-primary ring-4 ring-primary/5" : "border-slate-200"
+          )}>
+            <div className="relative shrink-0">
+              <div className="w-32 h-32 rounded-3xl bg-orange-100 flex items-center justify-center text-4xl font-black text-orange-600 overflow-hidden">
+                {teacher.profilePic ? (
+                  <img src={teacher.profilePic} alt={teacher.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : teacher.name[0]}
               </div>
             </div>
             <div className="flex-1">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase">Full Name</label>
-                        <input 
-                            value={editedTeacher.name} 
-                            onChange={e => setEditedTeacher({...editedTeacher, name: e.target.value})}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-primary"
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase">Email Address</label>
-                        <input 
-                            value={editedTeacher.email} 
-                            onChange={e => setEditedTeacher({...editedTeacher, email: e.target.value})}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-primary"
-                        />
-                    </div>
+              <div className="flex items-center justify-between">
+                {isEditing ? (
+                  <div className="flex-1 mr-4">
+                    <label className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">Full Name</label>
+                    <input 
+                      type="text"
+                      value={editedTeacher.BasicDetails?.fullName || ''}
+                      onChange={e => handleInputChange('BasicDetails', 'fullName', e.target.value)}
+                      className="w-full text-2xl font-black text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                      placeholder="Enter full name"
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase">Primary Subject</label>
-                        <input 
-                            value={editedTeacher.subject} 
-                            onChange={e => setEditedTeacher({...editedTeacher, subject: e.target.value})}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-primary"
-                        />
+                ) : (
+                  <h1 className="text-3xl font-black text-slate-900">{teacher.name}</h1>
+                )}
+                <span className={cn(
+                  "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tighter shrink-0",
+                  teacher.isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                )}>
+                  {teacher.isVerified ? 'Verified' : 'Pending Verification'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <div className="flex items-center gap-3 text-slate-500 text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary shrink-0 border border-slate-100">
+                      <Mail size={18} />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase">Experience (Years)</label>
-                        <input 
-                            type="number"
-                            value={editedTeacher.experienceYears} 
-                            onChange={e => setEditedTeacher({...editedTeacher, experienceYears: parseInt(e.target.value)})}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-primary"
-                        />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Bio / Description</label>
-                      <textarea 
-                          value={editedTeacher.bio} 
-                          onChange={e => setEditedTeacher({...editedTeacher, bio: e.target.value})}
-                          className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-primary min-h-[80px]"
+                    {isEditing ? (
+                      <input 
+                        type="email"
+                        value={editedTeacher.BasicDetails?.email || ''}
+                        onChange={e => handleInputChange('BasicDetails', 'email', e.target.value)}
+                        className="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full text-sm font-bold shadow-sm"
                       />
+                    ) : (
+                      <span className="font-bold text-slate-700">{teacher.email}</span>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-black text-slate-900">{teacher.name}</h1>
-                    <div className="flex gap-2">
-                        {teacher.isExperienceVerified && (
-                             <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase flex items-center gap-1">
-                                <ShieldAlert size={12} /> VERIFIED EXP.
-                             </span>
-                        )}
-                        <span className={cn(
-                        "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tighter",
-                        teacher.status === 'ACTIVE' ? "bg-emerald-100 text-emerald-700" : 
-                        teacher.status === 'PENDING' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"
-                        )}>
-                        {teacher.status}
-                        </span>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
+                  <div className="flex items-center gap-3 text-slate-500 text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary shrink-0 border border-slate-100">
+                      <Phone size={18} />
                     </div>
+                    {isEditing ? (
+                      <input 
+                        type="tel"
+                        value={editedTeacher.BasicDetails?.mobile || ''}
+                        onChange={e => handleInputChange('BasicDetails', 'mobile', e.target.value)}
+                        className="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full text-sm font-bold shadow-sm"
+                      />
+                    ) : (
+                      <span className="font-bold text-slate-700">{teacher.phone}</span>
+                    )}
                   </div>
-                  <p className="text-slate-500 mt-1 font-medium">{teacher.email}</p>
-                  <p className="text-slate-600 mt-4 text-sm leading-relaxed">{teacher.bio}</p>
-                  <div className="flex flex-wrap gap-3 mt-6">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <BookOpen size={16} className="text-primary" />
-                      <span className="text-xs font-bold text-slate-700">{teacher.subject}</span>
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Street Address</label>
+                  <div className="flex items-center gap-3 text-slate-500 text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary shrink-0 border border-slate-100">
+                      <MapPin size={18} />
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <Timer size={16} className="text-orange-500" />
-                      <span className="text-xs font-bold text-slate-700">{teacher.sessionsCount} Sessions</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <Zap size={16} className="text-blue-500" />
-                      <span className="text-xs font-bold text-slate-700">{teacher.experienceYears} Years Exp.</span>
-                    </div>
+                    {isEditing ? (
+                      <input 
+                        type="text"
+                        value={editedTeacher.BasicDetails?.address?.street || ''}
+                        onChange={e => {
+                          const newAddress = { ...editedTeacher.BasicDetails.address, street: e.target.value };
+                          handleInputChange('BasicDetails', 'address', newAddress);
+                        }}
+                        className="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full text-sm font-bold shadow-sm"
+                      />
+                    ) : (
+                      <span className="font-bold text-slate-700">
+                        {teacher.raw.BasicDetails?.address ? `${teacher.raw.BasicDetails.address.street}, ${teacher.raw.BasicDetails.address.city}, ${teacher.raw.BasicDetails.address.state} - ${teacher.raw.BasicDetails.address.pincode}` : 'N/A'}
+                      </span>
+                    )}
                   </div>
-                  {teacher.expertise.length > 0 && (
-                      <div className="mt-4 flex gap-2">
-                          {teacher.expertise.map(exp => (
-                              <span key={exp} className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider">
-                                  {exp}
-                              </span>
-                          ))}
-                      </div>
-                  )}
-                </>
-              )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 mt-6">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <BookOpen size={16} className="text-primary" />
+                  <span className="text-xs font-bold text-slate-700">{teacher.subject}</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <Zap size={16} className="text-blue-500" />
+                  <span className="text-xs font-bold text-slate-700">{teacher.experienceYears} Years Exp.</span>
+                </div>
+                {teacher.raw.ExperienceDetails.teachingMode && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+                    <Briefcase size={16} className="text-orange-500" />
+                    <span className="text-xs font-bold text-slate-700 uppercase">{teacher.raw.ExperienceDetails.teachingMode}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Onboarding Pipeline */}
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="font-black text-slate-900 flex items-center gap-2">
-                <RotateCcw size={18} className="text-primary" />
-                ONBOARDING PIPELINE
+          {/* Qualifications & Experience */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={cn(
+              "bg-white p-6 rounded-3xl border shadow-sm transition-all duration-300",
+              isEditing ? "border-primary ring-4 ring-primary/5" : "border-slate-200"
+            )}>
+              <h3 className="font-black text-slate-900 flex items-center gap-2 mb-6">
+                <GraduationCap size={20} className="text-primary" />
+                QUALIFICATIONS
               </h3>
-              <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg">
-                STEP: {teacher.onboardingStep}
-              </span>
-            </div>
-            <div className="p-8">
-              <div className="flex items-center justify-between mb-12 relative">
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-100 -translate-y-1/2 -z-0" />
-                {['REGISTRATION', 'DOCUMENTS', 'DEMO_SESSION', 'APPROVAL'].map((step, idx) => {
-                    const steps = ['REGISTRATION', 'DOCUMENTS', 'DEMO_SESSION', 'APPROVAL'];
-                    const currentIdx = steps.indexOf(teacher.onboardingStep);
-                    const isCompleted = idx < currentIdx;
-                    const isCurrent = idx === currentIdx;
-
-                    return (
-                        <div key={step} className="relative z-10 flex flex-col items-center">
-                            <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-sm transition-all duration-500",
-                                isCompleted ? "bg-emerald-500 text-white" : 
-                                isCurrent ? "bg-primary text-white scale-110 shadow-lg shadow-primary/20" : 
-                                "bg-slate-200 text-slate-400"
-                            )}>
-                                {isCompleted ? <CheckCircle size={20} /> : <span className="text-xs font-black">{idx + 1}</span>}
-                            </div>
-                            <span className={cn(
-                                "text-[10px] font-black uppercase tracking-tighter mt-3",
-                                isCurrent ? "text-primary" : "text-slate-400"
-                            )}>{step.replace('_', ' ')}</span>
-                        </div>
-                    );
-                })}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Degree</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.QualificationDetails?.degree || ''}
+                      onChange={e => handleInputChange('QualificationDetails', 'degree', e.target.value)}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-700">{teacher.raw.QualificationDetails?.degree || 'N/A'}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">College/University</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.QualificationDetails?.college || ''}
+                      onChange={e => handleInputChange('QualificationDetails', 'college', e.target.value)}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-700">{teacher.raw.QualificationDetails?.college || 'N/A'}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Passing Year</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.QualificationDetails?.passingYear || ''}
+                      onChange={e => handleInputChange('QualificationDetails', 'passingYear', e.target.value)}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-700">{teacher.raw.QualificationDetails?.passingYear || 'N/A'}</p>
+                  )}
+                </div>
               </div>
+            </div>
 
-              {/* Step Content */}
-              <div className="min-h-[200px] flex flex-col justify-center">
-                  {teacher.onboardingStep === 'DOCUMENTS' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-black text-slate-800">Pending Document Verification</h4>
-                        <span className="text-xs font-bold text-slate-400">{teacher.documents.filter(d => d.status === 'VERIFIED').length} / {teacher.documents.length} Verified</span>
-                      </div>
-                      {teacher.documents.map((doc: any) => (
-                        <div key={doc.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className={cn(
-                                "p-2 rounded-lg border",
-                                doc.status === 'VERIFIED' ? "bg-emerald-50 border-emerald-100 text-emerald-600" :
-                                doc.status === 'REJECTED' ? "bg-red-50 border-red-100 text-red-600" :
-                                "bg-white border-slate-100 text-primary"
-                            )}>
-                              <FileText size={20} />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-900">{doc.type}</p>
-                              <div className="flex gap-2 items-center">
-                                <button className="text-[10px] font-bold text-primary hover:underline">View Document</button>
-                                <span className="text-[10px] text-slate-300">•</span>
-                                <span className={cn(
-                                    "text-[10px] font-black uppercase",
-                                    doc.status === 'VERIFIED' ? "text-emerald-500" :
-                                    doc.status === 'REJECTED' ? "text-red-500" : "text-amber-500"
-                                )}>{doc.status}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                             {doc.status !== 'VERIFIED' && (
-                                <button 
-                                    onClick={() => docMutation.mutate({ docId: doc.id, status: 'VERIFIED' })}
-                                    className="p-2 bg-white hover:bg-emerald-50 text-emerald-600 border border-slate-100 rounded-xl transition-colors"
-                                    title="Approve"
-                                >
-                                    <CheckCircle size={18} />
-                                </button>
-                             )}
-                             {doc.status !== 'REJECTED' && (
-                                <button 
-                                    onClick={() => docMutation.mutate({ docId: doc.id, status: 'REJECTED' })}
-                                    className="p-2 bg-white hover:bg-red-50 text-red-500 border border-slate-100 rounded-xl transition-colors"
-                                    title="Reject"
-                                >
-                                    <XCircle size={18} />
-                                </button>
-                             )}
-                          </div>
-                        </div>
+            <div className={cn(
+              "bg-white p-6 rounded-3xl border shadow-sm transition-all duration-300",
+              isEditing ? "border-primary ring-4 ring-primary/5" : "border-slate-200"
+            )}>
+              <h3 className="font-black text-slate-900 flex items-center gap-2 mb-6">
+                <Briefcase size={20} className="text-primary" />
+                EXPERIENCE
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Subjects (Comma Separated)</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.ExperienceDetails?.subjects?.join(', ') || ''}
+                      onChange={e => handleInputChange('ExperienceDetails', 'subjects', e.target.value.split(',').map((s: string) => s.trim()))}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {teacher.subjects.map(s => (
+                        <span key={s} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">{s}</span>
                       ))}
-                      {teacher.documents.every(d => d.status === 'VERIFIED') && (
-                          <button 
-                            onClick={() => onboardingMutation.mutate('DEMO_SESSION')}
-                            className="w-full mt-6 py-4 bg-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                          >
-                              Proceed to Demo Session <Zap size={18} />
-                          </button>
-                      )}
                     </div>
                   )}
-
-                  {teacher.onboardingStep === 'DEMO_SESSION' && (
-                      <div className="text-center space-y-6">
-                          <div className="w-20 h-20 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto text-orange-600">
-                             <Calendar size={40} />
-                          </div>
-                          <div>
-                              <h4 className="text-xl font-black text-slate-900">Demo Session Required</h4>
-                              <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">This teacher is ready for a demo session. Schedule and review their teaching style to proceed.</p>
-                          </div>
-                          <div className="flex gap-4 max-w-sm mx-auto">
-                              <button className="flex-1 py-3 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-50">
-                                  Schedule Demo
-                              </button>
-                              <button 
-                                onClick={() => onboardingMutation.mutate('APPROVAL')}
-                                className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800"
-                              >
-                                  Mark as Completed
-                              </button>
-                          </div>
-                      </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Languages (Comma Separated)</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.ExperienceDetails?.teachingLanguages?.join(', ') || ''}
+                      onChange={e => handleInputChange('ExperienceDetails', 'teachingLanguages', e.target.value.split(',').map((s: string) => s.trim()))}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {teacher.raw.ExperienceDetails?.teachingLanguages?.map(l => (
+                        <span key={l} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold">{l}</span>
+                      ))}
+                    </div>
                   )}
-
-                  {teacher.onboardingStep === 'APPROVAL' && (
-                       <div className="text-center space-y-6">
-                            <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center mx-auto text-emerald-600">
-                                <Shield size={40} />
-                            </div>
-                            <div>
-                                <h4 className="text-xl font-black text-slate-900">Final Approval</h4>
-                                <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">All checks passed. You can now approve this teacher to join the platform or reject if not suitable.</p>
-                            </div>
-                            <div className="flex gap-4 max-w-sm mx-auto">
-                                <button 
-                                    onClick={() => handleAction('Reject Teacher', 'Are you sure you want to reject this teacher application?', () => statusMutation.mutate({ status: 'REJECTED' }))}
-                                    className="flex-1 py-4 border border-red-200 text-red-500 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-red-50"
-                                >
-                                    Reject Application
-                                </button>
-                                <button 
-                                    onClick={() => handleAction('Approve Teacher', 'Approve this teacher and make them ACTIVE on the platform?', () => statusMutation.mutate({ status: 'ACTIVE' }))}
-                                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                                >
-                                    Approve & Active
-                                </button>
-                            </div>
-                       </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Boards (Comma Separated)</p>
+                  {isEditing ? (
+                    <input 
+                      type="text"
+                      value={editedTeacher.ExperienceDetails?.teachingBoards?.join(', ') || ''}
+                      onChange={e => handleInputChange('ExperienceDetails', 'teachingBoards', e.target.value.split(',').map((s: string) => s.trim()))}
+                      className="text-sm font-bold text-slate-700 bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary w-full shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {teacher.raw.ExperienceDetails?.teachingBoards?.map(b => (
+                        <span key={b} className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold">{b}</span>
+                      ))}
+                    </div>
                   )}
-
-                  {teacher.onboardingStep === 'REGISTRATION' && (
-                       <div className="text-center text-slate-400 font-bold py-12">
-                           Teacher is currently completing registration...
-                       </div>
-                  )}
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <h3 className="font-black text-slate-900 flex items-center gap-2 mb-6">
+              <FileText size={20} className="text-primary" />
+              VERIFICATION DOCUMENTS
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {teacher.documents.map(doc => (
+                <div key={doc.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">{doc.type}</span>
+                    <span className={cn(
+                      "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md",
+                      doc.status === 'VERIFIED' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                    )}>{doc.status}</span>
+                  </div>
+                  {doc.url ? (
+                    <a 
+                      href={doc.url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+                    >
+                      <Eye size={14} /> View Document
+                    </a>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Not Uploaded</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right Col: Analytics & Control */}
+        {/* Right Col: Summary & Quick Actions */}
         <div className="space-y-8">
-          {/* Performance Stats */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 mb-6">
-              <TrendingUp size={20} className="text-primary" />
-              PERFORMANCE ANALYTICS
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <h3 className="font-black text-slate-900 flex items-center gap-2 mb-4">
+              <Shield size={20} className="text-primary" />
+              ADMIN SUMMARY
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Avg. Rating</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <h4 className="text-xl font-black text-slate-900">{teacher.analytics.rating}</h4>
-                  <Star size={16} className="text-amber-400 fill-amber-400" />
-                </div>
+            <p className="text-sm text-slate-600 leading-relaxed italic">
+              "{teacher.bio}"
+            </p>
+            <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400">Joined Platform</span>
+                <span className="text-xs font-bold text-slate-700">{new Date(teacher.raw.createdAt).toLocaleDateString()}</span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Success Rate</p>
-                <h4 className="text-xl font-black text-emerald-600 mt-1">{teacher.analytics.sessionSuccessRate}</h4>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400">Last Updated</span>
+                <span className="text-xs font-bold text-slate-700">{new Date(teacher.raw.updatedAt).toLocaleDateString()}</span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Resp. Time</p>
-                <h4 className="text-xl font-black text-blue-600 mt-1">{teacher.analytics.responseTime}</h4>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400">User ID</span>
+                <span className="text-xs font-mono text-[10px] text-slate-500">{teacher.raw.userId._id}</span>
               </div>
-               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Complaints</p>
-                <h4 className="text-xl font-black text-red-500 mt-1">{teacher.analytics.complaintCount}</h4>
-              </div>
-            </div>
-            <button 
-                onClick={() => setIsAnalyticsOpen(true)}
-                className="w-full py-3 bg-primary/10 text-primary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
-            >
-              View Detailed Metrics
-            </button>
-          </div>
-
-          {/* Availability Control */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 mb-6">
-              <Zap size={20} className="text-orange-500" />
-              AVAILABILITY CONTROL
-            </h3>
-            <div className="space-y-4">
-               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">Force Online Status</p>
-                    <p className="text-[10px] text-slate-500">Override system auto-assign</p>
-                  </div>
-                  <button 
-                    disabled={availabilityMutation.isPending}
-                    onClick={() => availabilityMutation.mutate({ isOnline: !teacher.isOnline })}
-                    className={cn(
-                        "w-12 h-6 rounded-full relative transition-all duration-300",
-                        teacher.isOnline ? "bg-green-500" : "bg-slate-300",
-                        availabilityMutation.isPending && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <div className={cn(
-                        "w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300", 
-                        teacher.isOnline ? "left-7" : "left-1"
-                    )} />
-                  </button>
-               </div>
-
-               <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                  <div>
-                    <p className="text-sm font-bold text-primary">Auto-Assign System</p>
-                    <p className="text-[10px] text-primary/60">Automated session matching</p>
-                  </div>
-                  <button 
-                    disabled={availabilityMutation.isPending}
-                    onClick={() => availabilityMutation.mutate({ autoAssign: !teacher.autoAssign })}
-                    className={cn(
-                        "w-12 h-6 rounded-full relative transition-all duration-300",
-                        teacher.autoAssign ? "bg-primary" : "bg-slate-300",
-                        availabilityMutation.isPending && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <div className={cn(
-                        "w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300", 
-                        teacher.autoAssign ? "left-7" : "left-1"
-                    )} />
-                  </button>
-               </div>
-            </div>
-
-            <div className="pt-6 border-t border-slate-100">
-               <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Slots</h4>
-                    <span className="text-[10px] font-bold text-primary">Monday</span>
-               </div>
-               <div className="space-y-2">
-                 {[
-                   { time: '10:00 - 12:00', status: 'Booked' },
-                   { time: '14:00 - 16:00', status: 'Available' },
-                   { time: '18:00 - 20:00', status: 'Available' }
-                 ].map((slot, i) => (
-                   <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-primary/20 transition-colors">
-                     <span className="text-xs font-bold text-slate-700">{slot.time}</span>
-                     <span className={cn(
-                       "text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md",
-                       slot.status === 'Booked' ? "bg-orange-100 text-orange-600" : "bg-emerald-100 text-emerald-600"
-                     )}>{slot.status}</span>
-                   </div>
-                 ))}
-               </div>
-               <button className="w-full mt-4 py-3 border border-dashed border-slate-200 text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-primary hover:border-primary transition-all flex items-center justify-center gap-2">
-                 <Calendar size={16} />
-                 Manage All Schedule Slots
-               </button>
             </div>
           </div>
 
-          {/* Teacher Wallet */}
-          <TeacherWalletCard
-            teacherId={teacher.id}
-            initialBalance={32400}
-            initialRate={12}
-          />
+          <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-900/20">
+            <h3 className="font-black flex items-center gap-2 mb-6">
+              <Zap size={20} className="text-primary" />
+              QUICK ACTIONS
+            </h3>
+            <div className="space-y-3">
+              <button 
+                onClick={() => handleAction('Reset Password', 'Send a password reset link to the teacher?', () => {})}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+              >
+                Reset Password
+              </button>
+              <button 
+                onClick={() => handleAction('Contact Teacher', 'Open email client to message this teacher?', () => window.location.href = `mailto:${teacher.email}`)}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+              >
+                Message Teacher
+              </button>
+              <button 
+                onClick={() => handleAction('Suspend Account', 'Temporarily disable this teacher\'s access?', () => {})}
+                className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+              >
+                Suspend Account
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Onboarding Pipeline */}
+      <OnboardingPipeline 
+        currentStep={onboardingStep} 
+        onStepClick={(step) => setOnboardingStep(step)}
+        isVerified={teacher.isVerified}
+      />
 
       <ConfirmationModal 
         isOpen={isConfirmOpen}
@@ -548,13 +543,7 @@ export const TeacherDetailsPage = () => {
         title={confirmAction?.title || ''}
         message={confirmAction?.message || ''}
       />
-
-      <PerformanceAnalyticsModal 
-        isOpen={isAnalyticsOpen}
-        onClose={() => setIsAnalyticsOpen(false)}
-        teacherName={teacher.name}
-        analytics={teacher.analytics}
-      />
     </div>
   );
 };
+
