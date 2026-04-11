@@ -54,6 +54,7 @@ export interface TeacherResponse {
     teachingMode?: string;
   };
   isVerified: boolean;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,7 +69,7 @@ export interface Teacher {
   subjects: string[];
   experienceYears: number;
   isVerified: boolean;
-  status: 'ACTIVE' | 'PENDING';
+  status: 'ACTIVE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   bio: string;
   profilePic: string | null;
   onboardingStep: 'REGISTRATION' | 'DOCUMENTS' | 'DEMO_SESSION' | 'APPROVAL';
@@ -98,7 +99,7 @@ const mapResponseToTeacher = (res: TeacherResponse): Teacher => {
     subjects,
     experienceYears: years,
     isVerified: !!res.isVerified,
-    status: res.isVerified ? 'ACTIVE' : 'PENDING',
+    status: (res.status as any) || (res.isVerified ? 'ACTIVE' : 'PENDING'),
     bio: res.ExperienceDetails?.shortSummary || 'No bio provided.',
     profilePic: res.BasicDetails?.profilePic || null,
     onboardingStep: res.isVerified ? 'APPROVAL' : 'DOCUMENTS',
@@ -112,9 +113,9 @@ const mapResponseToTeacher = (res: TeacherResponse): Teacher => {
 };
 
 export const teacherApi = {
-  getAll: async (): Promise<Teacher[]> => {
+  getAll: async (params?: { search?: string, page?: number, limit?: number }): Promise<Teacher[]> => {
     try {
-      const response = await api.get<TeacherResponse[]>('/teachers');
+      const response = await api.get<TeacherResponse[]>('/teachers', { params });
       console.log('API Response:', response.data);
       return response.data.map(mapResponseToTeacher);
     } catch (error) {

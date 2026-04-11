@@ -88,13 +88,38 @@ export const TeacherDetailsPage = () => {
     }
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: async () => {
+      console.log('TeacherDetailsPage: Starting reject mutation for id:', id);
+      const response = await api({
+        method: 'put',
+        url: `/teachers/${id}`,
+        data: { status: 'REJECTED', isVerified: false },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      console.log('TeacherDetailsPage: Rejection successful');
+      queryClient.invalidateQueries({ queryKey: ['teacher', id] });
+      alert('Teacher application rejected.');
+    },
+    onError: (error: any) => {
+      console.error('TeacherDetailsPage: Rejection failed', error);
+      alert('Rejection failed. Check console for details.');
+    }
+  });
+
   const verifyMutation = useMutation({
     mutationFn: async () => {
       console.log('TeacherDetailsPage: Starting verify mutation for id:', id);
       const response = await api({
         method: 'put',
         url: `/teachers/${id}`,
-        data: { isVerified: true },
+        data: { status: 'APPROVED', isVerified: true },
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
@@ -170,16 +195,25 @@ export const TeacherDetailsPage = () => {
             </>
           ) : (
             <>
-              {!teacher.isVerified && onboardingStep === 'APPROVAL' && (
-                <button 
-                  onClick={() => handleAction('Verify Teacher', 'Approve this teacher and mark them as verified on the platform?', () => verifyMutation.mutate())}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 transition-colors flex items-center gap-2 shadow-lg shadow-emerald-600/10"
-                >
-                  <CheckCircle size={18} />
-                  Approve & Make Active
-                </button>
+              {teacher.status === 'PENDING' && onboardingStep === 'APPROVAL' && (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleAction('Reject Teacher', 'Are you sure you want to reject this teacher application?', () => rejectMutation.mutate())}
+                    className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-500 transition-colors flex items-center gap-2 shadow-lg shadow-red-600/10"
+                  >
+                    <XCircle size={18} />
+                    Reject
+                  </button>
+                  <button 
+                    onClick={() => handleAction('Verify Teacher', 'Approve this teacher and mark them as verified on the platform?', () => verifyMutation.mutate())}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-500 transition-colors flex items-center gap-2 shadow-lg shadow-emerald-600/10"
+                  >
+                    <CheckCircle size={18} />
+                    Approve & Make Active
+                  </button>
+                </div>
               )}
-              {!teacher.isVerified && onboardingStep !== 'APPROVAL' && (
+              {teacher.status === 'PENDING' && onboardingStep !== 'APPROVAL' && (
                 <button 
                   onClick={() => {
                     const steps: OnboardingStep[] = ['REGISTRATION', 'DOCUMENTS', 'DEMO_SESSION', 'APPROVAL'];
@@ -236,9 +270,13 @@ export const TeacherDetailsPage = () => {
                 )}
                 <span className={cn(
                   "px-3 py-1 rounded-xl text-xs font-black uppercase tracking-tighter shrink-0",
-                  teacher.isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                  teacher.status === 'APPROVED' || teacher.isVerified ? "bg-emerald-100 text-emerald-700" : 
+                  teacher.status === 'REJECTED' ? "bg-red-100 text-red-700" :
+                  "bg-amber-100 text-amber-700"
                 )}>
-                  {teacher.isVerified ? 'Verified' : 'Pending Verification'}
+                  {teacher.status === 'APPROVED' || teacher.isVerified ? 'Verified' : 
+                   teacher.status === 'REJECTED' ? 'Rejected' : 
+                   'Pending Verification'}
                 </span>
               </div>
               
@@ -533,7 +571,7 @@ export const TeacherDetailsPage = () => {
       <OnboardingPipeline 
         currentStep={onboardingStep} 
         onStepClick={(step) => setOnboardingStep(step)}
-        isVerified={teacher.isVerified}
+        isVerified={teacher.status !== 'PENDING'}
       />
 
       <ConfirmationModal 
