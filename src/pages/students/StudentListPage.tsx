@@ -67,10 +67,10 @@ export const StudentListPage = () => {
           <h2 className="text-2xl font-bold text-slate-900">Student Directory</h2>
           <p className="text-slate-500 text-sm">Manage and monitor all student accounts and their progress.</p>
         </div>
-        <button className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+        {/* <button className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
           <UserPlus size={18} />
           Add New Student
-        </button>
+        </button> */}
       </div>
 
       <div className="h-[calc(100vh-16rem)]">
