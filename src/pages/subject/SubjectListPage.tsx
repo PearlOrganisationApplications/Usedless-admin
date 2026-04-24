@@ -32,7 +32,7 @@ export const SubjectListPage = () => {
     },
     onError: (error: any) => {
       console.error('Failed to create subject:', error);
-      alert(error.response?.data?.message || 'Failed to create subject. Please try again.');
+      alert(error.response?.data?.message || 'Failed to create subject. Please try agains.');
     }
   });
 
