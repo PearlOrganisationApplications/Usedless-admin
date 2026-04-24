@@ -21,6 +21,9 @@ const sidebarItems = [
   { icon: Wallet, label: 'Finance', path: '/finance', permission: 'PAYOUT_APPROVE', roles: ['SUPER_ADMIN', 'FINANCE'] },
   { icon: Megaphone, label: 'Marketing', path: '/marketing', permission: 'CAMPAIGN_CREATE', roles: ['SUPER_ADMIN', 'MARKETING'] },
   { icon: Clapperboard, label: 'Reels', path: '/reels', permission: 'CONTENT_MODERATE', roles: ['SUPER_ADMIN'] },
+  //subject
+  { icon: Clapperboard, label: 'Subject', path: '/SubjectListPage', permission: 'CONTENT_MODERATE', roles: ['SUPER_ADMIN'] },
+
   { icon: Share2, label: 'Referral', path: '/referral', permission: 'SYSTEM_SETTINGS_UPDATE', roles: ['SUPER_ADMIN'] },
   { icon: MessageSquare, label: 'Support', path: '/support', permission: 'SUPPORT_VIEW', roles: ['SUPER_ADMIN', 'SUPPORT'] },
   { icon: ShieldCheck, label: 'Admins', path: '/system/admins', roles: ['SUPER_ADMIN'] },
