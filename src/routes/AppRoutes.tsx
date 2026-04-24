@@ -27,6 +27,7 @@ import { AdminManagementPage } from '@/pages/system/AdminManagementPage';
 import { RolesPermissionsPage } from '@/pages/system/RolesPermissionsPage';
 import { AddTeacherPage } from '@/pages/teachers/AddTeacherPage';
 import { SubjectListPage } from '@/pages/subject/SubjectListPage';
+import { ContentListPage } from '@/pages/content/ContentListPage';
 // More imports for modules...
 
 export const AppRoutes = () => {
@@ -55,6 +56,7 @@ export const AppRoutes = () => {
             <Route path="/marketing" element={<MarketingPage />} />
             <Route path="/reels" element={<ReelsManagementPage />} />
             <Route path="/SubjectListPage" element={<SubjectListPage />} />
+            <Route path="/ContentListPage" element={<ContentListPage />} />
             <Route path="/referral" element={<ReferralManagementPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/system/admins" element={<AdminManagementPage />} />
