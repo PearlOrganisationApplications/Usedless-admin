@@ -30,7 +30,7 @@ export interface CreateSubjectPayload {
 export const subjectApi = {
   getAll: async (): Promise<Subject[]> => {
     try {
-      const response = await api.get<{ success: boolean; data: SubjectResponse[] }>('/admin/content/my-subjects');
+      const response = await api.get<{ success: boolean; data: SubjectResponse[] }>('/admin/content/get-subjects');
       return (response.data.data || []).map(s => ({
         id: s._id,
         name: s.name,

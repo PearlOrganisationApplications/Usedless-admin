@@ -1,455 +1,74 @@
-// import React, { useState } from 'react';
-// import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-// import { DataTable } from '@/components/tables/DataTable';
-// import { contentApi, ContentType, ContentResponse } from '@/services/api/content.api';
-// import { subjectApi } from '@/services/api/subjects.api';
-// import { Plus, Loader2, FileVideo, FileText, ImageIcon, Trash2, X, Upload, ExternalLink } from 'lucide-react';
-// import { cn } from '@/utils';
-// import { motion, AnimatePresence } from 'framer-motion';
-
-// interface ContentTableItem extends ContentResponse {
-//   id: string;
-// }
-
-// export const ContentListPage = () => {
-//   const [activeType, setActiveType] = useState<ContentType>('VIDEO');
-//   const [isModalOpen, setIsModalOpen] = useState(false);
-//   const [newContent, setNewContent] = useState({
-//     subjectId: '',
-//     title: '',
-//     description: '',
-//     contentType: 'VIDEO' as ContentType,
-//     file: null as File | null,
-//     chapterName: '',
-//     chapterNumber: 1,
-//     accessPlan: 'BASIC' as 'BASIC' | 'PREMIUM'
-//   });
-
-//   const queryClient = useQueryClient();
-
-//   // Fetch subjects for the dropdown
-//   const { data: subjects = [] } = useQuery({
-//     queryKey: ['subjects'],
-//     queryFn: subjectApi.getAll,
-//   });
-
-//   // Fetch content based on active tab
-//   const { data: contentList = [], isLoading } = useQuery<ContentTableItem[]>({
-//     queryKey: ['content', activeType],
-//     queryFn: async () => {
-//       const data = await contentApi.getByType(activeType);
-//       return data.map(item => ({ ...item, id: item._id }));
-//     },
-//   });
-
-//   const uploadMutation = useMutation({
-//     mutationFn: contentApi.upload,
-//     onSuccess: () => {
-//       queryClient.invalidateQueries({ queryKey: ['content', activeType] });
-//       setIsModalOpen(false);
-//       resetForm();
-//       alert('Content uploaded successfully!');
-//     },
-//     onError: (error: any) => {
-//       console.error('Upload failed:', error);
-//       alert(error.response?.data?.message || 'Upload failed. Please try again.');
-//     }
-//   });
-
-//   const resetForm = () => {
-//     setNewContent({
-//       subjectId: '',
-//       title: '',
-//       description: '',
-//       contentType: activeType,
-//       file: null,
-//       chapterName: '',
-//       chapterNumber: 1,
-//       accessPlan: 'BASIC'
-//     });
-//   };
-
-//   const columns: { header: string; accessor: keyof ContentTableItem; render?: (val: any, item: ContentTableItem) => React.ReactNode }[] = [
-//     { 
-//       header: 'Title', 
-//       accessor: 'title' as const,
-//       render: (val: string, item: ContentTableItem) => (
-//         <div className="flex items-center gap-3">
-//           <div className={cn(
-//             "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm",
-//             item.contentType === 'VIDEO' ? "bg-red-500" : 
-//             item.contentType === 'PDF' ? "bg-orange-500" : "bg-blue-500"
-//           )}>
-//              {item.contentType === 'VIDEO' ? <FileVideo size={20} /> : 
-//               item.contentType === 'PDF' ? <FileText size={20} /> : <ImageIcon size={20} />}
-//           </div>
-//           <div>
-//             <p className="font-bold text-slate-900 line-clamp-1">{val}</p>
-//             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">CH {item.chapterNumber}: {item.chapterName}</p>
-//           </div>
-//         </div>
-//       )
-//     },
-//     { 
-//       header: 'Subject & Plan', 
-//       accessor: 'subjectId' as const,
-//       render: (val: string, item: ContentTableItem) => {
-//         const subject = subjects.find(s => s.id === val);
-//         return (
-//           <div className="flex flex-col">
-//             <span className="text-xs font-bold text-slate-700">{subject?.name || 'Unknown'}</span>
-//             <span className={cn(
-//               "text-[9px] font-black uppercase px-2 py-0.5 rounded-full w-fit mt-1",
-//               item.accessPlan === 'BASIC' ? "bg-slate-100 text-slate-500" : "bg-primary/10 text-primary"
-//             )}>
-//               {item.accessPlan}
-//             </span>
-//           </div>
-//         );
-//       }
-//     },
-//     { 
-//       header: 'URL', 
-//       accessor: 'id' as const,
-//       render: (_: any, item: ContentTableItem) => {
-//         const url = item.videoUrl || item.pdfUrl || item.imageUrl;
-//         return (
-//           <a 
-//             href={url} 
-//             target="_blank" 
-//             rel="noreferrer"
-//             className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline group"
-//           >
-//             <span>View File</span>
-//             <ExternalLink size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-//           </a>
-//         );
-//       }
-//     },
-//     {
-//       header: 'Upload Date',
-//       accessor: 'createdAt' as const,
-//       render: (val: string) => (
-//         <div className="text-xs text-slate-400 font-medium whitespace-nowrap">
-//           {new Date(val).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-//         </div>
-//       )
-//     }
-//   ];
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (!newContent.file) {
-//       alert('Please select a file to upload');
-//       return;
-//     }
-//     uploadMutation.mutate(newContent as any);
-//   };
-
-//   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     if (e.target.files && e.target.files[0]) {
-//       setNewContent(prev => ({ ...prev, file: e.target.files![0] }));
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-6">
-//       <div className="flex items-center justify-between">
-//         <div>
-//           <h2 className="text-2xl font-bold text-slate-900">Content Management</h2>
-//           <p className="text-slate-500 text-sm">Upload and organize learning materials across subjects.</p>
-//         </div>
-//         <button 
-//           onClick={() => {
-//             resetForm();
-//             setIsModalOpen(true);
-//           }}
-//           className="px-6 py-3 bg-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
-//         >
-//           <Plus size={18} />
-//           Upload Material
-//         </button>
-//       </div>
-
-//       {/* Type Tabs */}
-//       <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
-//         {(['VIDEO', 'PDF', 'IMAGE'] as ContentType[]).map((type) => (
-//           <button
-//             key={type}
-//             onClick={() => setActiveType(type)}
-//             className={cn(
-//               "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-//               activeType === type 
-//                 ? "bg-white text-primary shadow-sm" 
-//                 : "text-slate-400 hover:text-slate-600"
-//             )}
-//           >
-//             {type}S
-//           </button>
-//         ))}
-//       </div>
-
-//       <div className="h-[calc(100vh-20rem)]">
-//         <DataTable
-//           columns={columns}
-//           data={contentList}
-//           isLoading={isLoading}
-//           gridTemplateColumns="3fr 1.5fr 1.5fr 1.5fr"
-//         />
-//       </div>
-
-//       {/* Upload Content Modal */}
-//       <AnimatePresence>
-//         {isModalOpen && (
-//           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-//             <motion.div 
-//               initial={{ opacity: 0 }}
-//               animate={{ opacity: 1 }}
-//               exit={{ opacity: 0 }}
-//               onClick={() => setIsModalOpen(false)}
-//               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-//             />
-//             <motion.div 
-//               initial={{ opacity: 0, scale: 0.95, y: 20 }}
-//               animate={{ opacity: 1, scale: 1, y: 0 }}
-//               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-//               className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
-//             >
-//               <div className="p-8 max-h-[90vh] overflow-y-auto">
-//                 <div className="flex items-center justify-between mb-8">
-//                   <div>
-//                     <h3 className="text-xl font-black text-slate-900">Upload New Material</h3>
-//                     <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Choose {activeType} to upload</p>
-//                   </div>
-//                   <button 
-//                     onClick={() => setIsModalOpen(false)}
-//                     className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
-//                   >
-//                     <X size={20} />
-//                   </button>
-//                 </div>
-
-//                 <form onSubmit={handleSubmit} className="space-y-6">
-//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Title</label>
-//                       <input 
-//                         required
-//                         type="text"
-//                         value={newContent.title}
-//                         onChange={e => setNewContent(s => ({ ...s, title: e.target.value }))}
-//                         placeholder="e.g. Chapter 2: Introduction to Chemistry"
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       />
-//                     </div>
-
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject</label>
-//                       <select 
-//                         required
-//                         value={newContent.subjectId}
-//                         onChange={e => setNewContent(s => ({ ...s, subjectId: e.target.value }))}
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       >
-//                         <option value="">Select a subject</option>
-//                         {subjects.map(s => (
-//                           <option key={s.id} value={s.id}>{s.name} - Class {s.className} ({s.board})</option>
-//                         ))}
-//                       </select>
-//                     </div>
-//                   </div>
-
-//                   <div className="space-y-1.5">
-//                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Description</label>
-//                     <textarea 
-//                       required
-//                       value={newContent.description}
-//                       onChange={e => setNewContent(s => ({ ...s, description: e.target.value }))}
-//                       placeholder="Detailed information about this material..."
-//                       rows={2}
-//                       className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                     />
-//                   </div>
-
-//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chapter Name</label>
-//                       <input 
-//                         required
-//                         type="text"
-//                         value={newContent.chapterName}
-//                         onChange={e => setNewContent(s => ({ ...s, chapterName: e.target.value }))}
-//                         placeholder="e.g. Economic"
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       />
-//                     </div>
-
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chapter Number</label>
-//                       <input 
-//                         required
-//                         type="number"
-//                         min="1"
-//                         value={newContent.chapterNumber}
-//                         onChange={e => setNewContent(s => ({ ...s, chapterNumber: Number(e.target.value) }))}
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       />
-//                     </div>
-//                   </div>
-
-//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Content Type</label>
-//                       <select 
-//                         required
-//                         value={newContent.contentType}
-//                         onChange={e => setNewContent(s => ({ ...s, contentType: e.target.value as ContentType }))}
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       >
-//                         <option value="VIDEO">VIDEO</option>
-//                         <option value="PDF">PDF</option>
-//                         <option value="IMAGE">IMAGE</option>
-//                       </select>
-//                     </div>
-
-//                     <div className="space-y-1.5">
-//                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Access Plan</label>
-//                       <select 
-//                         required
-//                         value={newContent.accessPlan}
-//                         onChange={e => setNewContent(s => ({ ...s, accessPlan: e.target.value as 'BASIC' | 'PREMIUM' }))}
-//                         className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-//                       >
-//                         <option value="BASIC">BASIC</option>
-//                         <option value="PREMIUM">PREMIUM (Paid Only)</option>
-//                       </select>
-//                     </div>
-//                   </div>
-
-//                   <div className="space-y-1.5">
-//                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">File Attachment</label>
-//                     <div className="relative">
-//                       <input 
-//                         type="file" 
-//                         onChange={handleFileChange}
-//                         className="hidden" 
-//                         id="materialFile" 
-//                       />
-//                       <label 
-//                         htmlFor="materialFile" 
-//                         className={cn(
-//                           "w-full py-8 bg-slate-50 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-100 transition-all flex flex-col items-center justify-center gap-3",
-//                           newContent.file ? "border-emerald-200" : "border-slate-200"
-//                         )}
-//                       >
-//                         {newContent.file ? (
-//                           <>
-//                             <div className="bg-emerald-500 text-white p-2 rounded-xl">
-//                               <Loader2 className="animate-pulse" size={24} />
-//                             </div>
-//                             <span className="text-sm font-bold text-emerald-600 line-clamp-1">{newContent.file.name}</span>
-//                           </>
-//                         ) : (
-//                           <>
-//                             <Upload className="text-slate-300" size={32} />
-//                             <span className="text-sm font-bold text-slate-400">Click to browse or drag {activeType} file</span>
-//                           </>
-//                         )}
-//                       </label>
-//                     </div>
-//                   </div>
-
-//                   <div className="pt-4 flex gap-3">
-//                     <button 
-//                       type="button"
-//                       onClick={() => setIsModalOpen(false)}
-//                       className="flex-1 py-3 border-2 border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
-//                     >
-//                       Cancel
-//                     </button>
-//                     <button 
-//                       disabled={uploadMutation.isPending}
-//                       type="submit"
-//                       className="flex-1 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-//                     >
-//                       {uploadMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Start Upload'}
-//                     </button>
-//                   </div>
-//                 </form>
-//               </div>
-//             </motion.div>
-//           </div>
-//         )}
-//       </AnimatePresence>
-//     </div>
-//   );
-// };
-
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataTable } from '@/components/tables/DataTable';
-import { contentApi, ContentType, ContentResponse } from '@/services/api/content.api';
+import { contentApi, ContentType } from '@/services/api/content.api';
 import { subjectApi } from '@/services/api/subjects.api';
-import { Plus, Loader2, FileVideo, FileText, ImageIcon, Trash2, X, Upload, ExternalLink } from 'lucide-react';
+import {
+  Plus,
+  Loader2,
+  FileVideo,
+  FileText,
+  ImageIcon,
+  X,
+  Upload,
+  ExternalLink
+} from 'lucide-react';
 import { cn } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface ContentTableItem extends ContentResponse {
-  id: string;
-}
+export const CONTENT_CATEGORIES: ContentType[] = [
+  'ALL',
+  'PDF',
+  'VIDEO',
+  'PYQ',
+  'QUESTION_BANK',
+  'TEXTBOOK',
+  'SAMPLE_PAPER',
+  'WORKSHEET',
+  'REVISION_NOTES',
+  'FORMULA_SHEET',
+  'MOCK_TEST',
+  'CHAPTER_SUMMARY',
+  'ASSIGNMENTS',
+  'IMPORTANT_QUESTIONS'
+];
 
 export const ContentListPage = () => {
-  const [activeType, setActiveType] = useState<ContentType>('VIDEO');
+  const [activeType, setActiveType] = useState<ContentType>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newContent, setNewContent] = useState({
-    subjectId: '',
-    title: '',
-    description: '',
-    contentType: 'VIDEO' as ContentType,
-    file: null as File | null,
-    chapterName: '',
-    chapterNumber: 1,
-    accessPlan: 'BASIC' as 'BASIC' | 'PREMIUM'
-  });
+
+const [newContent, setNewContent] = useState({
+  subjectId: '',
+  title: '',
+  description: '',
+  contentType: 'PYQ' as ContentType, // ✅ now real category
+  file: null as File | null,
+  chapterName: '',
+  chapterNumber: 1,
+  accessPlan: 'BASIC' as 'BASIC' | 'PREMIUM'
+});
 
   const queryClient = useQueryClient();
 
-  // Fetch subjects for the dropdown
-  const { data: apiSubjects = [] } = useQuery({
+  const { data: subjects = [] } = useQuery({
     queryKey: ['subjects'],
-    queryFn: subjectApi.getAll,
+    queryFn: subjectApi.getAll
   });
 
-  // Mock subjects for testing as requested
-  const mockSubjects = [
-    { id: '69e89c03a0a8c41dbf3c3c60', name: 'Chemistry', className: '10', board: 'CBSE' },
-    { id: 'test-bio', name: 'Biology', className: '12', board: 'ICSE' },
-    { id: 'test-math', name: 'Mathematics', className: '9', board: 'State Board' }
-  ];
-
-  const subjects = [...apiSubjects, ...mockSubjects];
-
-  // Fetch content based on active tab
-  const { data: contentList = [], isLoading } = useQuery<ContentTableItem[]>({
+  const { data: contentList = [], isLoading } = useQuery({
     queryKey: ['content', activeType],
     queryFn: async () => {
       const data = await contentApi.getByType(activeType);
-      return data.map(item => ({ ...item, id: item._id }));
-    },
+      return data.map((i: any) => ({ ...i, id: i._id }));
+    }
   });
 
   const uploadMutation = useMutation({
     mutationFn: contentApi.upload,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['content', activeType] });
+      queryClient.invalidateQueries({ queryKey: ['content'] });
       setIsModalOpen(false);
       resetForm();
-      alert('Content uploaded successfully!');
-    },
-    onError: (error: any) => {
-      console.error('Upload failed:', error);
-      alert(error.response?.data?.message || 'Upload failed. Please try again.');
     }
   });
 
@@ -458,7 +77,7 @@ export const ContentListPage = () => {
       subjectId: '',
       title: '',
       description: '',
-      contentType: activeType,
+      contentType: 'PYQ',
       file: null,
       chapterName: '',
       chapterNumber: 1,
@@ -466,318 +85,306 @@ export const ContentListPage = () => {
     });
   };
 
-  const columns: { header: string; accessor: keyof ContentTableItem; render?: (val: any, item: ContentTableItem) => React.ReactNode }[] = [
-    { 
-      header: 'Title', 
-      accessor: 'title' as const,
-      render: (val: string, item: ContentTableItem) => (
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm",
-            item.contentType === 'VIDEO' ? "bg-red-500" : 
-            item.contentType === 'PDF' ? "bg-orange-500" : "bg-blue-500"
-          )}>
-             {item.contentType === 'VIDEO' ? <FileVideo size={20} /> : 
-              item.contentType === 'PDF' ? <FileText size={20} /> : <ImageIcon size={20} />}
-          </div>
-          <div>
-            <p className="font-bold text-slate-900 line-clamp-1">{val}</p>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">CH {item.chapterNumber}: {item.chapterName}</p>
-          </div>
-        </div>
-      )
-    },
-    { 
-      header: 'Subject & Plan', 
-      accessor: 'subjectId' as const,
-      render: (val: string, item: ContentTableItem) => {
-        const subject = subjects.find(s => s.id === val);
-        return (
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-slate-700">{subject?.name || 'Unknown'}</span>
-            <span className={cn(
-              "text-[9px] font-black uppercase px-2 py-0.5 rounded-full w-fit mt-1",
-              item.accessPlan === 'BASIC' ? "bg-slate-100 text-slate-500" : "bg-primary/10 text-primary"
-            )}>
-              {item.accessPlan}
-            </span>
-          </div>
-        );
-      }
-    },
-    { 
-      header: 'URL', 
-      accessor: 'id' as const,
-      render: (_: any, item: ContentTableItem) => {
-        const url = item.videoUrl || item.pdfUrl || item.imageUrl;
-        return (
-          <a 
-            href={url} 
-            target="_blank" 
-            rel="noreferrer"
-            className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline group"
-          >
-            <span>View File</span>
-            <ExternalLink size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </a>
-        );
-      }
-    },
-    {
-      header: 'Upload Date',
-      accessor: 'createdAt' as const,
-      render: (val: string) => (
-        <div className="text-xs text-slate-400 font-medium whitespace-nowrap">
-          {new Date(val).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-        </div>
-      )
-    }
-  ];
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newContent.file) {
-      alert('Please select a file to upload');
-      return;
-    }
+    if (!newContent.file) return alert('Select file');
     uploadMutation.mutate(newContent as any);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setNewContent(prev => ({ ...prev, file: e.target.files![0] }));
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Content Management</h2>
-          <p className="text-slate-500 text-sm">Upload and organize learning materials across subjects.</p>
+          <h2 className="text-xl font-bold">Content Management</h2>
+          <p className="text-sm text-gray-500">Manage all learning materials</p>
         </div>
-        <button 
+
+        <button
           onClick={() => {
             resetForm();
             setIsModalOpen(true);
           }}
-          className="px-6 py-3 bg-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
+          className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-xl flex gap-2 hover:opacity-90"
         >
-          <Plus size={18} />
-          Upload Material
+          <Plus size={16} /> Upload
         </button>
       </div>
 
-      {/* Type Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
-        {(['VIDEO', 'PDF', 'IMAGE'] as ContentType[]).map((type) => (
+      {/* TABS */}
+      <div className="flex gap-2 flex-wrap">
+        {CONTENT_CATEGORIES.map(type => (
           <button
             key={type}
             onClick={() => setActiveType(type)}
             className={cn(
-              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeType === type 
-                ? "bg-white text-primary shadow-sm" 
-                : "text-slate-400 hover:text-slate-600"
+              "px-3 py-1 rounded-full text-xs transition",
+              activeType === type
+                ? "bg-black text-white"
+                : "bg-gray-100 hover:bg-gray-200"
             )}
           >
-            {type}S
+            {type.replaceAll('_', ' ')}
           </button>
         ))}
       </div>
 
-      <div className="h-[calc(100vh-20rem)]">
-        <DataTable
-          columns={columns}
-          data={contentList}
-          isLoading={isLoading}
-          gridTemplateColumns="3fr 1.5fr 1.5fr 1.5fr"
-        />
-      </div>
+      {/* TABLE */}
+      <DataTable
+        data={contentList}
+        isLoading={isLoading}
+        gridTemplateColumns="2fr 1fr 1fr 1fr"
+        columns={[
+          {
+            header: 'Content',
+            accessor: 'title',
+            render: (_: any, item: any) => (
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm">{item.title}</span>
+                <span className="text-xs text-gray-500">
+                  {item.subjectId?.name} • Class {item.className}
+                </span>
+              </div>
+            )
+          },
 
-      {/* Upload Content Modal */}
+          {
+            header: 'TYPE',
+            accessor: 'category',
+            render: (_: any, item: any) => (
+              <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                {item.contentType.replaceAll('_', ' ')}
+              </span>
+            )
+          },
+
+          {
+            header: 'Plan',
+            accessor: 'accessPlan',
+            render: (_: any, item: any) => (
+              <span
+                className={cn(
+                  "px-2 py-1 text-xs rounded-full",
+                  item.accessPlan === 'PREMIUM'
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-green-100 text-green-700"
+                )}
+              >
+                {item.accessPlan}
+              </span>
+            )
+          },
+
+          {
+            header: 'File',
+            accessor: 'file',
+            render: (_: any, item: any) => {
+              const url = item.videoUrl || item.fileUrl;
+
+              const Icon =
+                item.contentType === 'VIDEO'
+                  ? FileVideo
+                  : item.contentType === 'PDF'
+                  ? FileText
+                  : ImageIcon;
+
+              return (
+                <a
+                  href={url}
+                  target="_blank"
+                  className="flex items-center gap-2 text-blue-600 hover:underline"
+                >
+                  <Icon size={16} />
+                  View
+                  <ExternalLink size={14} />
+                </a>
+              );
+            }
+          }
+        ]}
+      />
+
+      {/* EMPTY STATE */}
+      {!isLoading && contentList.length === 0 && (
+        <div className="text-center text-gray-400 py-10">
+          No content found
+        </div>
+      )}
+
+      {/* MODAL */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+
+            {/* BACKDROP */}
+            <div
+              className="absolute inset-0 bg-black/40"
               onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
+
+            {/* MODAL */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white p-6 rounded-2xl w-[520px] z-10 shadow-xl space-y-4"
             >
-              <div className="p-8 max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900">Upload New Material</h3>
-                    <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Choose {activeType} to upload</p>
-                  </div>
-                  <button 
-                    onClick={() => setIsModalOpen(false)}
-                    className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Title</label>
-                      <input 
-                        required
-                        type="text"
-                        value={newContent.title}
-                        onChange={e => setNewContent(s => ({ ...s, title: e.target.value }))}
-                        placeholder="e.g. Chapter 2: Introduction to Chemistry"
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject</label>
-                      <select 
-                        required
-                        value={newContent.subjectId}
-                        onChange={e => setNewContent(s => ({ ...s, subjectId: e.target.value }))}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      >
-                        <option value="">Select a subject</option>
-                        {subjects.map(s => (
-                          <option key={s.id} value={s.id}>{s.name} - Class {s.className} ({s.board})</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Description</label>
-                    <textarea 
-                      required
-                      value={newContent.description}
-                      onChange={e => setNewContent(s => ({ ...s, description: e.target.value }))}
-                      placeholder="Detailed information about this material..."
-                      rows={2}
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chapter Name</label>
-                      <input 
-                        required
-                        type="text"
-                        value={newContent.chapterName}
-                        onChange={e => setNewContent(s => ({ ...s, chapterName: e.target.value }))}
-                        placeholder="e.g. Economic"
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chapter Number</label>
-                      <input 
-                        required
-                        type="number"
-                        min="1"
-                        value={newContent.chapterNumber}
-                        onChange={e => setNewContent(s => ({ ...s, chapterNumber: Number(e.target.value) }))}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Content Type</label>
-                      <select 
-                        required
-                        value={newContent.contentType}
-                        onChange={e => setNewContent(s => ({ ...s, contentType: e.target.value as ContentType }))}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      >
-                        <option value="VIDEO">VIDEO</option>
-                        <option value="PDF">PDF</option>
-                        <option value="IMAGE">IMAGE</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Access Plan</label>
-                      <select 
-                        required
-                        value={newContent.accessPlan}
-                        onChange={e => setNewContent(s => ({ ...s, accessPlan: e.target.value as 'BASIC' | 'PREMIUM' }))}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                      >
-                        <option value="BASIC">BASIC</option>
-                        <option value="PREMIUM">PREMIUM (Paid Only)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">File Attachment</label>
-                    <div className="relative">
-                      <input 
-                        type="file" 
-                        onChange={handleFileChange}
-                        className="hidden" 
-                        id="materialFile" 
-                      />
-                      <label 
-                        htmlFor="materialFile" 
-                        className={cn(
-                          "w-full py-8 bg-slate-50 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-100 transition-all flex flex-col items-center justify-center gap-3",
-                          newContent.file ? "border-emerald-200" : "border-slate-200"
-                        )}
-                      >
-                        {newContent.file ? (
-                          <>
-                            <div className="bg-emerald-500 text-white p-2 rounded-xl">
-                              <Loader2 className="animate-pulse" size={24} />
-                            </div>
-                            <span className="text-sm font-bold text-emerald-600 line-clamp-1">{newContent.file.name}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="text-slate-300" size={32} />
-                            <span className="text-sm font-bold text-slate-400">Click to browse or drag {activeType} file</span>
-                          </>
-                        )}
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 flex gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      className="flex-1 py-3 border-2 border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      disabled={uploadMutation.isPending}
-                      type="submit"
-                      className="flex-1 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {uploadMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Start Upload'}
-                    </button>
-                  </div>
-                </form>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Upload Content</h3>
+                <button onClick={() => setIsModalOpen(false)}>
+                  <X size={18} />
+                </button>
               </div>
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+
+  {/* SUBJECT */}
+  <select
+    className="w-full border p-2 rounded-lg"
+    value={newContent.subjectId}
+    onChange={e =>
+      setNewContent(s => ({ ...s, subjectId: e.target.value }))
+    }
+    required
+  >
+    <option value="">Select Subject</option>
+    {subjects.map((sub: any) => (
+      <option key={sub.id} value={sub.id}>
+        {sub.name} (Class {sub.className})
+      </option>
+    ))}
+  </select>
+
+  {/* TITLE */}
+  <input
+    className="w-full border p-2 rounded-lg"
+    placeholder="Title"
+    value={newContent.title}
+    onChange={e =>
+      setNewContent(s => ({ ...s, title: e.target.value }))
+    }
+    required
+  />
+
+  {/* DESCRIPTION */}
+  <textarea
+    className="w-full border p-2 rounded-lg"
+    placeholder="Description"
+    value={newContent.description}
+    onChange={e =>
+      setNewContent(s => ({ ...s, description: e.target.value }))
+    }
+  />
+
+  {/* CATEGORY (CONTENT TYPE LIKE PYQ, NOTES) */}
+ <select
+  className="w-full border p-2 rounded-lg"
+  value={newContent.contentType}
+  onChange={e =>
+    setNewContent(s => ({
+      ...s,
+      contentType: e.target.value as ContentType
+    }))
+  }
+>
+  {CONTENT_CATEGORIES.filter(c => c !== 'ALL').map(c => (
+    <option key={c} value={c}>
+      {c.replaceAll('_', ' ')}
+    </option>
+  ))}
+</select>
+
+
+  {/* CHAPTER NAME */}
+  <input
+    className="w-full border p-2 rounded-lg"
+    placeholder="Chapter Name"
+    value={newContent.chapterName}
+    onChange={e =>
+      setNewContent(s => ({
+        ...s,
+        chapterName: e.target.value
+      }))
+    }
+  />
+
+  {/* CHAPTER NUMBER */}
+  <input
+    type="number"
+    className="w-full border p-2 rounded-lg"
+    placeholder="Chapter Number"
+    value={newContent.chapterNumber}
+    onChange={e =>
+      setNewContent(s => ({
+        ...s,
+        chapterNumber: Number(e.target.value)
+      }))
+    }
+  />
+
+  {/* ACCESS PLAN */}
+  <select
+    className="w-full border p-2 rounded-lg"
+    value={newContent.accessPlan}
+    onChange={e =>
+      setNewContent(s => ({
+        ...s,
+        accessPlan: e.target.value as 'BASIC' | 'PREMIUM'
+      }))
+    }
+  >
+    <option value="BASIC">BASIC</option>
+    <option value="PREMIUM">PREMIUM</option>
+  </select>
+
+  {/* FILE UPLOAD */}
+  <label className="border-dashed border-2 p-4 rounded-lg flex flex-col items-center cursor-pointer hover:bg-gray-50">
+    <Upload size={20} />
+    <span className="text-sm text-gray-500">
+      Click to upload file
+    </span>
+
+    {newContent.file && (
+      <span className="text-xs mt-1 text-green-600">
+        {newContent.file.name}
+      </span>
+    )}
+
+    <input
+      type="file"
+      className="hidden"
+      onChange={e => {
+        if (e.target.files) {
+          setNewContent(s => ({
+            ...s,
+            file: e.target.files![0]
+          }));
+        }
+      }}
+      required
+    />
+  </label>
+
+  {/* SUBMIT */}
+  <button
+    type="submit"
+    className="w-full bg-black text-white py-2 rounded-lg flex justify-center items-center gap-2"
+  >
+    {uploadMutation.isPending && (
+      <Loader2 className="animate-spin" size={16} />
+    )}
+    Upload Content
+  </button>
+
+</form>
+
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
     </div>
   );
 };

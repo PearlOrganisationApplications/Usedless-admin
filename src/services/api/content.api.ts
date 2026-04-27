@@ -1,6 +1,21 @@
 import api from './axios';
 
-export type ContentType = 'VIDEO' | 'PDF' | 'IMAGE';
+export type ContentType =
+  | 'ALL'
+  | 'PDF'
+  | 'VIDEO'
+  | 'PYQ'
+  | 'QUESTION_BANK'
+  | 'TEXTBOOK'
+  | 'SAMPLE_PAPER'
+  | 'WORKSHEET'
+  | 'REVISION_NOTES'
+  | 'FORMULA_SHEET'
+  | 'MOCK_TEST'
+  | 'CHAPTER_SUMMARY'
+  | 'ASSIGNMENTS'
+  | 'IMPORTANT_QUESTIONS';
+
 
 export interface ContentResponse {
   _id: string;
@@ -34,10 +49,16 @@ export interface CreateContentPayload {
 export const contentApi = {
   getByType: async (type: ContentType): Promise<ContentResponse[]> => {
     try {
-      const response = await api.get<{ success: boolean; data: ContentResponse[] }>(`/admin/content/view-content?contentType=${type}`);
+      const query = type === 'ALL' ? '' : `?type=${type}`;
+
+      const response = await api.get<{
+        success: boolean;
+        data: ContentResponse[];
+      }>(`/admin/content/get-materials${query}`);
+
       return response.data.data || [];
     } catch (error) {
-      console.error(`Failed to fetch ${type} content:`, error);
+      console.error('Fetch failed:', error);
       throw error;
     }
   },
@@ -45,33 +66,28 @@ export const contentApi = {
   upload: async (data: CreateContentPayload): Promise<ContentResponse> => {
     try {
       const formData = new FormData();
+
       formData.append('subjectId', data.subjectId);
       formData.append('title', data.title);
       formData.append('description', data.description);
-      formData.append('contentType', data.contentType);
+      formData.append('contentType', data.contentType); // file type
       formData.append('file', data.file);
       formData.append('chapterName', data.chapterName);
       formData.append('chapterNumber', String(data.chapterNumber));
       formData.append('accessPlan', data.accessPlan);
 
-      const response = await api.post<{ success: boolean; message: string; data: ContentResponse }>(
-        '/admin/content/upload/material',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
-      return response.data.data;
+      const res = await api.post('/admin/content/upload/material', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      return res.data.data;
     } catch (error) {
-      console.error('Failed to upload content:', error);
+      console.error('Upload failed:', error);
       throw error;
     }
   },
 
-  delete: async (id: string): Promise<void> => {
-    // Adding delete placeholder for consistency
+  delete: async (id: string) => {
     await api.delete(`/admin/content/material/${id}`);
   }
 };
