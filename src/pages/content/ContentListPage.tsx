@@ -37,16 +37,16 @@ export const ContentListPage = () => {
   const [activeType, setActiveType] = useState<ContentType>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-const [newContent, setNewContent] = useState({
-  subjectId: '',
-  title: '',
-  description: '',
-  contentType: 'PYQ' as ContentType, // ✅ now real category
-  file: null as File | null,
-  chapterName: '',
-  chapterNumber: 1,
-  accessPlan: 'BASIC' as 'BASIC' | 'PREMIUM'
-});
+  const [newContent, setNewContent] = useState({
+    subjectId: '',
+    title: '',
+    description: '',
+    contentType: 'PYQ' as ContentType, // ✅ now real category
+    file: null as File | null,
+    chapterName: '',
+    chapterNumber: 1,
+    accessPlan: 'BASIC' as 'BASIC' | 'PREMIUM'
+  });
 
   const queryClient = useQueryClient();
 
@@ -106,8 +106,8 @@ const [newContent, setNewContent] = useState({
             resetForm();
             setIsModalOpen(true);
           }}
-          className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-xl flex gap-2 hover:opacity-90"
-        >
+           className="bg-primary text-white px-4 py-2 rounded-xl flex items-center justify-center gap-2 hover:opacity-90"
+          >
           <Plus size={16} /> Upload
         </button>
       </div>
@@ -186,8 +186,8 @@ const [newContent, setNewContent] = useState({
                 item.contentType === 'VIDEO'
                   ? FileVideo
                   : item.contentType === 'PDF'
-                  ? FileText
-                  : ImageIcon;
+                    ? FileText
+                    : ImageIcon;
 
               return (
                 <a
@@ -240,145 +240,145 @@ const [newContent, setNewContent] = useState({
 
               <form onSubmit={handleSubmit} className="space-y-3">
 
-  {/* SUBJECT */}
-  <select
-    className="w-full border p-2 rounded-lg"
-    value={newContent.subjectId}
-    onChange={e =>
-      setNewContent(s => ({ ...s, subjectId: e.target.value }))
-    }
-    required
-  >
-    <option value="">Select Subject</option>
-    {subjects.map((sub: any) => (
-      <option key={sub.id} value={sub.id}>
-        {sub.name} (Class {sub.className})
-      </option>
-    ))}
-  </select>
+                {/* SUBJECT */}
+                <select
+                  className="w-full border p-2 rounded-lg"
+                  value={newContent.subjectId}
+                  onChange={e =>
+                    setNewContent(s => ({ ...s, subjectId: e.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Select Subject</option>
+                  {subjects.map((sub: any) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} (Class {sub.className})
+                    </option>
+                  ))}
+                </select>
 
-  {/* TITLE */}
-  <input
-    className="w-full border p-2 rounded-lg"
-    placeholder="Title"
-    value={newContent.title}
-    onChange={e =>
-      setNewContent(s => ({ ...s, title: e.target.value }))
-    }
-    required
-  />
+                {/* TITLE */}
+                <input
+                  className="w-full border p-2 rounded-lg"
+                  placeholder="Title"
+                  value={newContent.title}
+                  onChange={e =>
+                    setNewContent(s => ({ ...s, title: e.target.value }))
+                  }
+                  required
+                />
 
-  {/* DESCRIPTION */}
-  <textarea
-    className="w-full border p-2 rounded-lg"
-    placeholder="Description"
-    value={newContent.description}
-    onChange={e =>
-      setNewContent(s => ({ ...s, description: e.target.value }))
-    }
-  />
+                {/* DESCRIPTION */}
+                <textarea
+                  className="w-full border p-2 rounded-lg"
+                  placeholder="Description"
+                  value={newContent.description}
+                  onChange={e =>
+                    setNewContent(s => ({ ...s, description: e.target.value }))
+                  }
+                />
 
-  {/* CATEGORY (CONTENT TYPE LIKE PYQ, NOTES) */}
- <select
-  className="w-full border p-2 rounded-lg"
-  value={newContent.contentType}
-  onChange={e =>
-    setNewContent(s => ({
-      ...s,
-      contentType: e.target.value as ContentType
-    }))
-  }
->
-  {CONTENT_CATEGORIES.filter(c => c !== 'ALL').map(c => (
-    <option key={c} value={c}>
-      {c.replaceAll('_', ' ')}
-    </option>
-  ))}
-</select>
+                {/* CATEGORY (CONTENT TYPE LIKE PYQ, NOTES) */}
+                <select
+                  className="w-full border p-2 rounded-lg"
+                  value={newContent.contentType}
+                  onChange={e =>
+                    setNewContent(s => ({
+                      ...s,
+                      contentType: e.target.value as ContentType
+                    }))
+                  }
+                >
+                  {CONTENT_CATEGORIES.filter(c => c !== 'ALL').map(c => (
+                    <option key={c} value={c}>
+                      {c.replaceAll('_', ' ')}
+                    </option>
+                  ))}
+                </select>
 
 
-  {/* CHAPTER NAME */}
-  <input
-    className="w-full border p-2 rounded-lg"
-    placeholder="Chapter Name"
-    value={newContent.chapterName}
-    onChange={e =>
-      setNewContent(s => ({
-        ...s,
-        chapterName: e.target.value
-      }))
-    }
-  />
+                {/* CHAPTER NAME */}
+                <input
+                  className="w-full border p-2 rounded-lg"
+                  placeholder="Chapter Name"
+                  value={newContent.chapterName}
+                  onChange={e =>
+                    setNewContent(s => ({
+                      ...s,
+                      chapterName: e.target.value
+                    }))
+                  }
+                />
 
-  {/* CHAPTER NUMBER */}
-  <input
-    type="number"
-    className="w-full border p-2 rounded-lg"
-    placeholder="Chapter Number"
-    value={newContent.chapterNumber}
-    onChange={e =>
-      setNewContent(s => ({
-        ...s,
-        chapterNumber: Number(e.target.value)
-      }))
-    }
-  />
+                {/* CHAPTER NUMBER */}
+                <input
+                  type="number"
+                  className="w-full border p-2 rounded-lg"
+                  placeholder="Chapter Number"
+                  value={newContent.chapterNumber}
+                  onChange={e =>
+                    setNewContent(s => ({
+                      ...s,
+                      chapterNumber: Number(e.target.value)
+                    }))
+                  }
+                />
 
-  {/* ACCESS PLAN */}
-  <select
-    className="w-full border p-2 rounded-lg"
-    value={newContent.accessPlan}
-    onChange={e =>
-      setNewContent(s => ({
-        ...s,
-        accessPlan: e.target.value as 'BASIC' | 'PREMIUM'
-      }))
-    }
-  >
-    <option value="BASIC">BASIC</option>
-    <option value="PREMIUM">PREMIUM</option>
-  </select>
+                {/* ACCESS PLAN */}
+                <select
+                  className="w-full border p-2 rounded-lg"
+                  value={newContent.accessPlan}
+                  onChange={e =>
+                    setNewContent(s => ({
+                      ...s,
+                      accessPlan: e.target.value as 'BASIC' | 'PREMIUM'
+                    }))
+                  }
+                >
+                  <option value="BASIC">BASIC</option>
+                  <option value="PREMIUM">PREMIUM</option>
+                </select>
 
-  {/* FILE UPLOAD */}
-  <label className="border-dashed border-2 p-4 rounded-lg flex flex-col items-center cursor-pointer hover:bg-gray-50">
-    <Upload size={20} />
-    <span className="text-sm text-gray-500">
-      Click to upload file
-    </span>
+                {/* FILE UPLOAD */}
+                <label className="border-dashed border-2 p-4 rounded-lg flex flex-col items-center cursor-pointer hover:bg-gray-50">
+                  <Upload size={20} />
+                  <span className="text-sm text-gray-500">
+                    Click to upload file
+                  </span>
 
-    {newContent.file && (
-      <span className="text-xs mt-1 text-green-600">
-        {newContent.file.name}
-      </span>
-    )}
+                  {newContent.file && (
+                    <span className="text-xs mt-1 text-green-600">
+                      {newContent.file.name}
+                    </span>
+                  )}
 
-    <input
-      type="file"
-      className="hidden"
-      onChange={e => {
-        if (e.target.files) {
-          setNewContent(s => ({
-            ...s,
-            file: e.target.files![0]
-          }));
-        }
-      }}
-      required
-    />
-  </label>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={e => {
+                      if (e.target.files) {
+                        setNewContent(s => ({
+                          ...s,
+                          file: e.target.files![0]
+                        }));
+                      }
+                    }}
+                    required
+                  />
+                </label>
 
-  {/* SUBMIT */}
-  <button
-    type="submit"
-    className="w-full bg-black text-white py-2 rounded-lg flex justify-center items-center gap-2"
-  >
-    {uploadMutation.isPending && (
-      <Loader2 className="animate-spin" size={16} />
-    )}
-    Upload Content
-  </button>
+                {/* SUBMIT */}
+                <button
+                  type="submit"
+                  className="w-full bg-black text-white py-2 rounded-lg flex justify-center items-center gap-2"
+                >
+                  {uploadMutation.isPending && (
+                    <Loader2 className="animate-spin" size={16} />
+                  )}
+                  Upload Content
+                </button>
 
-</form>
+              </form>
 
             </motion.div>
           </div>
