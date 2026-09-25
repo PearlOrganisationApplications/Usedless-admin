@@ -2,10 +2,9 @@
 
 import { handle_location } from "@/api/controller/all_reports";
 import AddUpdateModal from "@/components/Modal/AddUpdateModal";
-import { Button } from "@/components/ui/button";
 import All_Reports_Table from "@/pages/All_Reports/Page";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin, Tag } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function UsersPage() {
@@ -86,19 +85,49 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="mx-auto w-[95%] sm:w-[90%] pb-10">
-      <div className="mt-6 flex gap-3">
-        <Button className={`flex-1 h-12 rounded-xl ${activeTab === "location" ? "bg-blue-700" : "bg-black"}`} onClick={() => setActiveTab("location")}>
+    <div className="mx-auto w-[100%] sm:w-[90%] pb-10">
+      {/* Attractive segmented filter toggle */}
+      <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md mb-4 p-4">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 opacity-10" />
+        <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400" />
+
+        <div className="relative flex items-center px-6 py-5 sm:px-8">
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-slate-800">
+            All Reports
+          </h1>
+        </div>
+      </div>
+      <div className="mt-6 inline-flex w-full sm:w-auto items-center gap-1 bg-slate-100 rounded-full p-1.5 shadow-inner shadow-slate-200/50">
+        <button
+          type="button"
+          onClick={() => setActiveTab("location")}
+          className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${
+            activeTab === "location"
+              ? "bg-blue-700 text-white shadow-lg shadow-blue-700/30"
+              : "text-slate-400 hover:text-slate-600 hover:bg-white/60"
+          }`}
+        >
+          <MapPin size={14} className={activeTab === "location" ? "opacity-100" : "opacity-50"} />
           {isAdmin ? "Manage Places" : "Client Locations"}
-        </Button>
-        <Button className={`flex-1 h-12 rounded-xl ${activeTab === "waste" ? "bg-blue-700" : "bg-black"}`} onClick={() => setActiveTab("waste")}>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("waste")}
+          className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${
+            activeTab === "waste"
+              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/30"
+              : "text-slate-400 hover:text-slate-600 hover:bg-white/60"
+          }`}
+        >
+          <Tag size={14} className={activeTab === "waste" ? "opacity-100" : "opacity-50"} />
           {isAdmin ? "Manage Waste Types" : "Client Waste Types"}
-        </Button>
+        </button>
       </div>
 
       <div className="mt-8 flex justify-end mb-3">
         {isAdmin && (
-          <button className="bg-green-600 font-bold py-2 px-5 rounded-lg text-white hover:bg-green-700" onClick={() => { setEditItem(null); setSelectedId(undefined); setOpenModal(true); }}>
+          <button className="bg-gray-600 font-bold py-2 px-5 rounded-lg text-white hover:bg-gray-700" onClick={() => { setEditItem(null); setSelectedId(undefined); setOpenModal(true); }}>
             {activeTab === "location" ? "+ Add Place" : "+ Add Waste Type"}
           </button>
         )}

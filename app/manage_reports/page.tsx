@@ -85,15 +85,72 @@ const Manage_reports = () => {
   const filteredData = data.filter((item) =>
     item?.name?.toLowerCase()?.includes(searchText.toLowerCase())
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
 
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col md:flex-row items-center gap-4 max-w-6xl mx-auto w-full">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-2.5 text-gray-500" size={20} />
-          <input type="text" placeholder="Search by location..." className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+
+      <div className="max-w-8xl mx-auto w-full  px-4">
+       <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md">
+
+    {/* Decorative half-curve on the right corner */}
+    <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 opacity-10" />
+
+    {/* Thin accent bar on top */}
+    <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400" />
+
+    <div className="relative flex items-center justify-between gap-4 px-6 py-6 sm:px-8">
+      <div className="flex items-center gap-4">
+        {/* Icon */}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 shadow-sm shadow-blue-200">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+        </div>
+
+        {/* Title */}
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-800">
+            Manage Reports
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            View and manage waste collection reports
+          </p>
+        </div>
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto w-full mb-15 mt-15">
+      <div className="relative w-full md:w-1/2 ">
+          <Search className="absolute left-3 top-2.5 text-gray-500  " size={20} />
+          <input type="text" placeholder="Search by location..." className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" value={searchText} onChange={(e) => {
+            setSearchText(e.target.value);
+            setCurrentPage(1);
+          }} />
         </div>
         <div className="flex items-center gap-2">
           <Button variant={isTodayOnly ? "default" : "outline"} className={cn("rounded-lg h-10 px-4", isTodayOnly && "bg-blue-600 text-white")} onClick={() => { const next = !isTodayOnly; setIsTodayOnly(next); if (next) setFilterDate(new Date()); else setFilterDate(undefined); }}>Today</Button>
@@ -122,7 +179,7 @@ const Manage_reports = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredData?.map((item, index) => (
+          {paginatedData?.map((item, index) => (
             <Card key={index} className="rounded-2xl shadow-md border bg-white pt-5">
               <CardContent className="p-5 space-y-3">
                 <p className="text-lg font-semibold">📍 Place: {item?.name?.toUpperCase()}</p>
@@ -175,6 +232,29 @@ const Manage_reports = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((prev) => prev - 1)}
+          >
+            Previous
+          </Button>
+
+          <span className="px-4 font-medium">
+            Page {currentPage} of {totalPages}
+          </span>
+
+          <Button
+            variant="outline"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

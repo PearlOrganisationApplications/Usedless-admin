@@ -34,6 +34,8 @@ const ClientPage = () => {
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 6;
   const [locSearchTerm, setLocSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -139,6 +141,16 @@ const ClientPage = () => {
     );
   }, [clients, clientSearchTerm]);
 
+  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+
+const paginatedClients = useMemo(() => {
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  return filteredClients.slice(startIndex, startIndex + itemsPerPage);
+}, [filteredClients, currentPage]);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [clientSearchTerm]);
   const filteredLocations = useMemo(() => {
     return locations.filter((loc) => loc.name.toLowerCase().includes(locSearchTerm.toLowerCase()));
   }, [locations, locSearchTerm]);
@@ -177,7 +189,7 @@ const ClientPage = () => {
         <div className="flex justify-center p-20"><Loader2 className="animate-spin text-blue-600" size={40} /></div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {filteredClients.map((client) => (
+          {paginatedClients.map((client) => (
             <div
               key={client.id}
               onClick={() => handleOpenDetails(client)}
@@ -269,7 +281,40 @@ const ClientPage = () => {
           ))}
         </div>
       )}
-
+ {!loading && totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-10">
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => prev - 1)}
+            className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold disabled:opacity-40"
+          >
+            Previous
+          </button>
+          {Array.from({ length: totalPages }, (_, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setCurrentPage(index + 1)}
+              className={`w-10 h-10 rounded-xl text-sm font-bold ${
+                currentPage === index + 1
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-600"
+              }`}
+            >
+              {index + 1}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      )}
       {/* --- MODAL: VIEW ALL LOCATIONS --- */}
       {isLocViewOpen && viewingClientLocs && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
@@ -555,7 +600,9 @@ const ClientPage = () => {
           </div>
         </div>
       )}
+      
     </div>
+    
   );
 };
 

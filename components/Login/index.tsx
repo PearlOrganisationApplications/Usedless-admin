@@ -153,13 +153,13 @@ const Login: React.FC<LoginProps> = ({ setIsAuthenticated }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+             <button
+  type="button"
+  onClick={() => setShowPassword(!showPassword)}
+  className="absolute right-3 top-1/2 -translate-y-1/2 text-black/50 hover:text-black transition-colors"
+>
+  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+</button>
             </div>
           </div>
 

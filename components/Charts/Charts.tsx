@@ -45,8 +45,9 @@ export default function Dashboard() {
   const [dryWasteOnly, setDryWasteOnly] = useState<any[]>([]);
   const [allWasteTypes, setAllWasteTypes] = useState<any[]>([]);
   const [ecoSummary, setEcoSummary] = useState({ landfill: 0, trees: 0, mtco2: 0 });
-
+  const [locationOpen, setLocationOpen] = useState(false);
   // Missed Punches
+  const [clientOpen, setClientOpen] = useState(false);
   const [missedPunches, setMissedPunches] = useState<{ count: number, locations: string[] }>({
     count: 0,
     locations: []
@@ -75,13 +76,13 @@ export default function Dashboard() {
         const role = localStorage.getItem("role") || "administrator";
         let data;
         if (selectedLocationId !== "all") {
-          
+
           data = await dashboardService.getLocationAnalytics(selectedLocationId);
         } else {
-         
+
           data = await dashboardService.getDashboardData(filter, role, selectedClientId);
         }
-         console.log("API DATA all:", data);
+        console.log("API DATA all:", data);
         setIsClientUser(data.isClient);
         setPieData(data.pieData);
         setDryWasteOnly(data.dryWasteOnly);
@@ -233,28 +234,79 @@ export default function Dashboard() {
 
   return (
     <div className="w-full min-h-screen bg-slate-50 p-4 md:p-10 font-sans text-slate-900">
+  <div className="relative mb-8 overflow-hidden rounded-2xl bg-white px-8 py-6 shadow-md border border-slate-200">
+  {/* Top gradient line */}
+  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-cyan-400"></div>
 
+  {/* Decorative circle */}
+  <div className="absolute -right-12 -top-8 h-36 w-40 rounded-full bg-blue-50"></div>
+
+  <div className="relative z-10">
+    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+      Dashboard
+    </h1>
+
+    <p className="mt-1 text-sm font-medium text-slate-500">
+    Overview of waste collection and environmental performance
+    </p>
+  </div>
+</div>
       {/* HEADER SECTION */}
       <div className="flex flex-wrap justify-between items-center mb-10 gap-4 bg-white p-5 rounded-4xl shadow-sm border border-slate-100">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="relative flex items-center bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100">
               <MapPin size={16} className="text-blue-600 mr-2" />
-              <select
-                aria-label="Select Location"
-                title="Select Location"
-                value={selectedLocationId}
-                onChange={(e) => {
-                  setSelectedLocationId(e.target.value);
-                  setSelectedClientId("all");
-                }}
-                className="bg-transparent text-xs font-black text-blue-900 outline-none cursor-pointer py-1 pr-2 uppercase tracking-tight"
-              >
-                <option value="all">Global View (All Sites)</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
+              <div className="relative w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setLocationOpen(!locationOpen)}
+                  className="w-full sm:w-[180px] flex items-center justify-between bg-white text-xs font-black text-blue-900 py-2 px-3 rounded-lg border border-blue-200"
+                >
+                  <span className="truncate">
+                    {selectedLocationId === "all"
+                      ? "Global View (All Sites)"
+                      : locations.find((loc) => loc.id == selectedLocationId)?.name}
+                  </span>
+
+                  <ChevronDown
+                    size={14}
+                    className={`ml-2 transition-transform ${locationOpen ? "rotate-180" : ""
+                      }`}
+                  />
+                </button>
+
+                {locationOpen && (
+                  <div className="absolute z-50 mt-2 w-full sm:w-[220px] max-h-60 overflow-y-auto bg-white border border-blue-100 rounded-xl shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLocationId("all");
+                        setSelectedClientId("all");
+                        setLocationOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-blue-900 hover:bg-blue-50"
+                    >
+                      Global View (All Sites)
+                    </button>
+
+                    {locations.map((loc) => (
+                      <button
+                        key={loc.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedLocationId(loc.id);
+                          setSelectedClientId("all");
+                          setLocationOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50"
+                      >
+                        {loc.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -262,18 +314,62 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <div className="relative flex items-center bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
                 <Users size={16} className="text-slate-400 mr-2" />
-                <select
-                  aria-label="Select Client"
-                  title="Select Client"
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer py-1.5 pr-2"
-                >
-                  <option value="all">All Clients</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>{client.first_name} {client.last_name}</option>
-                  ))}
-                </select>
+               <div className="relative w-full sm:w-auto">
+  <button
+    type="button"
+    onClick={() => setClientOpen(!clientOpen)}
+    className="w-full sm:w-[180px] flex items-center justify-between bg-white text-xs font-bold text-slate-700 py-2 px-3 rounded-lg border border-slate-200"
+  >
+    <span className="truncate">
+      {selectedClientId === "all"
+        ? "All Clients"
+        : (() => {
+            const client = clients.find(
+              (c) => c.id == selectedClientId
+            );
+            return client
+              ? `${client.first_name} ${client.last_name}`
+              : "Select Client";
+          })()}
+    </span>
+
+    <ChevronDown
+      size={14}
+      className={`ml-2 transition-transform ${
+        clientOpen ? "rotate-180" : ""
+      }`}
+    />
+  </button>
+
+  {clientOpen && (
+    <div className="absolute z-50 mt-2 w-full sm:w-[220px] max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+      <button
+        type="button"
+        onClick={() => {
+          setSelectedClientId("all");
+          setClientOpen(false);
+        }}
+        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+      >
+        All Clients
+      </button>
+
+      {clients.map((client) => (
+        <button
+          key={client.id}
+          type="button"
+          onClick={() => {
+            setSelectedClientId(client.id);
+            setClientOpen(false);
+          }}
+          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50"
+        >
+          {client.first_name} {client.last_name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
               </div>
               {selectedClientId !== "all" && (
                 <button onClick={handleIdentitySwitch} className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm">
